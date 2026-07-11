@@ -20,11 +20,13 @@ import { useRepoStore } from '@/stores/repo'
 import { useTypeStore } from '@/stores/types'
 import { useGroupStore } from '@/stores/groups'
 import { useTagStore } from '@/stores/tags'
+import { useItemStore } from '@/stores/items'
 
 const repoStore = useRepoStore()
 const typeStore = useTypeStore()
 const groupStore = useGroupStore()
 const tagStore = useTagStore()
+const itemStore = useItemStore()
 
 const showCreate = ref(false)
 const path = ref('')
@@ -59,6 +61,7 @@ async function loadAll() {
     typeStore.fetchAll(),
     groupStore.fetchAll(),
     tagStore.fetchAll(),
+    itemStore.fetchList(),
   ])
 }
 </script>

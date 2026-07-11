@@ -25,6 +25,7 @@ import { useThemeStore } from '@/stores/theme'
 import { useTypeStore } from '@/stores/types'
 import { useGroupStore } from '@/stores/groups'
 import { useTagStore } from '@/stores/tags'
+import { useItemStore } from '@/stores/items'
 import EmptyState from '@/components/EmptyState.vue'
 import Topbar from '@/components/Topbar.vue'
 import Sidebar from '@/components/Sidebar.vue'
@@ -40,6 +41,7 @@ const themeStore = useThemeStore()
 const typeStore = useTypeStore()
 const groupStore = useGroupStore()
 const tagStore = useTagStore()
+const itemStore = useItemStore()
 
 const showNewItem = ref(false)
 const showSettings = ref(false)
@@ -50,6 +52,7 @@ async function onRepoOpened() {
     typeStore.fetchAll(),
     groupStore.fetchAll(),
     tagStore.fetchAll(),
+    itemStore.fetchList(),
   ])
 }
 </script>
