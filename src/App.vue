@@ -7,7 +7,7 @@
       <div class="main">
         <Sidebar />
         <CenterList @new-item="showNewItem = true" />
-        <RightPanel />
+        <RightPanel v-model:activeTab="rightTab" />
       </div>
       <StatusBar />
     </template>
@@ -45,6 +45,7 @@ const itemStore = useItemStore()
 
 const showNewItem = ref(false)
 const showSettings = ref(false)
+const rightTab = ref<'detail' | 'types'>('detail')
 const toastRef = ref<InstanceType<typeof Toast> | null>(null)
 
 async function onRepoOpened() {
