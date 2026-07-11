@@ -1,8 +1,11 @@
 <template>
   <footer class="statusbar">
-    <span class="path">{{ repoStore.repoPath || '未打开仓库' }}</span>
-    <span class="count">{{ repoStore.itemCount }} 条目</span>
-    <span class="status">⚪ 就绪</span>
+    <span class="path text-muted">{{ repoStore.repoPath || '未打开仓库' }}</span>
+    <div class="right">
+      <span class="count">{{ repoStore.itemCount }} 条目</span>
+      <span class="dot" />
+      <span class="status">就绪</span>
+    </div>
   </footer>
 </template>
 
@@ -17,12 +20,17 @@ const repoStore = useRepoStore()
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 12px;
-  border-top: 1px solid var(--border);
+  padding: 0 var(--space-4);
   background: var(--surface);
-  font-size: 12px;
-  color: var(--text-secondary);
+  border-top: 1px solid var(--border-light);
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
   flex-shrink: 0;
+  letter-spacing: 0.01em;
 }
-.path { max-width: 500px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.right { display: flex; align-items: center; gap: var(--space-2); }
+.dot {
+  width: 5px; height: 5px; border-radius: var(--radius-full);
+  background: var(--success);
+}
 </style>

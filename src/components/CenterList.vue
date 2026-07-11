@@ -1,31 +1,37 @@
 <template>
-  <div class="center-list" @click.self="itemStore.clearSelection()">
-    <div v-if="items.length === 0" class="empty">
-      <p>暂无条目</p>
-      <button class="primary" @click="$emit('newItem')">+ 创建第一个条目</button>
+  <div class="center-list">
+    <div v-if="items.length === 0" class="empty-state" @click="$emit('newItem')">
+      <div class="empty-icon">📋</div>
+      <p class="empty-text">暂无条目</p>
+      <button class="primary">+ 创建第一个条目</button>
     </div>
-    <div
-      v-for="item in items"
-      :key="item.id"
-      class="item-row"
-      :class="{ selected: item.id === selectedId }"
-      @click="selectItem(item.id)"
-      @contextmenu.prevent="showContextMenu($event, item)"
-    >
-      <span class="icon">{{ getIcon(item.type_id) }}</span>
-      <span class="name">{{ item.name }}</span>
-      <span class="meta">{{ getTypeName(item.type_id) }} · {{ timeAgo(item.updated_at) }}</span>
+    <div v-else class="list">
+      <div
+        v-for="item in items" :key="item.id"
+        class="item-row" :class="{ active: item.id === selectedId }"
+        @click="selectItem(item.id)"
+        @contextmenu.prevent="showMenu($event, item)"
+      >
+        <span class="type-icon">{{ getIcon(item.type_id) }}</span>
+        <div class="item-body">
+          <span class="item-name">{{ item.name }}</span>
+          <span class="item-meta">{{ getTypeName(item.type_id) }} &middot; {{ timeAgo(item.updated_at) }}</span>
+        </div>
+      </div>
     </div>
 
-    <!-- Context Menu -->
-    <div v-if="contextMenu.show" class="context-menu" :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }">
-      <div class="menu-item danger" @click="deleteItem">🗑 删除条目</div>
-    </div>
+    <Teleport to="body">
+      <div v-if="menu.show" class="context-overlay" @click="menu.show = false" @contextmenu.prevent="menu.show = false">
+        <div class="context-menu" :style="{ left: menu.x + 'px', top: menu.y + 'px' }">
+          <button class="menu-item danger" @click="deleteItem">🗑 删除条目</button>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, reactive } from 'vue'
 import { useItemStore } from '@/stores/items'
 import { useTypeStore } from '@/stores/types'
 import type { Item } from '@/types/bindings'
@@ -36,61 +42,91 @@ const typeStore = useTypeStore()
 const items = computed(() => itemStore.items)
 const selectedId = computed(() => itemStore.selectedId)
 
-const contextMenu = ref({ show: false, x: 0, y: 0, item: null as Item | null })
+const menu = reactive({ show: false, x: 0, y: 0, item: null as Item | null })
 
 defineEmits<{ newItem: [] }>()
 
-function getIcon(typeId: number): string {
-  return typeStore.getTypeById(typeId)?.icon || '📄'
-}
-
-function getTypeName(typeId: number): string {
-  return typeStore.getTypeById(typeId)?.name || '?'
-}
+function getIcon(typeId: number) { return typeStore.getTypeById(typeId)?.icon || '📄' }
+function getTypeName(typeId: number) { return typeStore.getTypeById(typeId)?.name || '?' }
 
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime()
-  const days = Math.floor(diff / 86400000)
-  if (days === 0) return '今天'
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return '刚刚'
+  if (mins < 60) return `${mins} 分钟前`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs} 小时前`
+  const days = Math.floor(hrs / 24)
   if (days === 1) return '昨天'
-  return `${days} 天前`
+  if (days < 30) return `${days} 天前`
+  return `${Math.floor(days / 30)} 月前`
 }
 
 async function selectItem(id: string) {
   await itemStore.select(id)
-  contextMenu.value.show = false
+  menu.show = false
 }
 
-function showContextMenu(event: MouseEvent, item: Item) {
-  contextMenu.value = { show: true, x: event.clientX, y: event.clientY, item }
+function showMenu(e: MouseEvent, item: Item) {
+  menu.show = true; menu.x = e.clientX; menu.y = e.clientY; menu.item = item
 }
 
 async function deleteItem() {
-  if (contextMenu.value.item && confirm(`确定删除"${contextMenu.value.item.name}"？`)) {
-    await itemStore.remove(contextMenu.value.item.id)
+  if (menu.item && confirm(`确定删除"${menu.item.name}"？`)) {
+    await itemStore.remove(menu.item.id)
   }
-  contextMenu.value.show = false
+  menu.show = false
 }
 </script>
 
 <style scoped>
-.center-list { flex: 1; overflow-y: auto; padding: 8px 0; }
-.empty { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 48px; color: var(--text-secondary); }
+.center-list { flex: 1; overflow-y: auto; background: var(--bg); }
+
+.empty-state {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  height: 100%; gap: var(--space-3); color: var(--text-muted);
+}
+.empty-icon { font-size: 48px; opacity: 0.4; }
+.empty-text { font-size: var(--font-size-base); margin-bottom: var(--space-1); }
+
+.list { padding: var(--space-1) 0; }
+
 .item-row {
-  display: flex; align-items: center; gap: 8px; padding: 8px 16px; cursor: pointer;
-  border-bottom: 1px solid var(--border); user-select: none;
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: var(--space-2) var(--space-4); margin: 1px var(--space-2);
+  cursor: pointer; border-radius: var(--radius-md);
+  transition: background var(--duration-fast) var(--ease-out);
+  user-select: none;
 }
-.item-row:hover { background: var(--surface); }
-.item-row.selected { background: var(--accent); color: #fff; }
-.item-row.selected .meta { color: rgba(255,255,255,0.7); }
-.icon { font-size: 18px; }
-.name { font-weight: 500; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.meta { font-size: 12px; color: var(--text-secondary); }
+.item-row:hover { background: var(--surface-hover); }
+.item-row.active {
+  background: var(--accent); color: var(--accent-foreground);
+}
+.item-row.active .item-meta { color: rgba(255,255,255,0.7); }
+
+.type-icon { font-size: 20px; flex-shrink: 0; line-height: 1; }
+
+.item-body { display: flex; flex-direction: column; min-width: 0; gap: 1px; }
+.item-name { font-weight: var(--weight-medium); font-size: var(--font-size-base); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.item-meta { font-size: var(--font-size-xs); color: var(--text-muted); }
+
+.context-overlay { position: fixed; inset: 0; z-index: 100; }
 .context-menu {
-  position: fixed; background: var(--surface); border: 1px solid var(--border);
-  border-radius: 4px; padding: 4px 0; z-index: 100; min-width: 140px; box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  position: fixed;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-1);
+  min-width: 160px;
+  box-shadow: var(--shadow-lg);
+  z-index: 101;
 }
-.menu-item { padding: 6px 16px; cursor: pointer; font-size: 13px; }
-.menu-item:hover { background: var(--border); }
-.menu-item.danger { color: var(--danger); }
+.menu-item {
+  display: flex; align-items: center; gap: var(--space-2);
+  width: 100%; padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-sm); border-radius: var(--radius-sm);
+  border: none; background: none; cursor: pointer; height: auto;
+  color: var(--danger); transition: background var(--duration-fast) var(--ease-out);
+}
+.menu-item:hover { background: var(--danger-subtle); }
 </style>

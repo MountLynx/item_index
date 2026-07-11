@@ -1,8 +1,8 @@
 <template>
   <Teleport to="body">
-    <div class="dialog-overlay" @click.self="$emit('close')">
-      <div class="dialog">
-        <h3>新建条目</h3>
+    <div class="overlay" @click.self="$emit('close')">
+      <div class="modal">
+        <h3 class="modal-title">新建条目</h3>
         <div class="form-group">
           <label>类型</label>
           <select v-model="typeId">
@@ -13,9 +13,9 @@
           <label>名称</label>
           <input v-model="name" @keydown.enter="create" placeholder="条目名称" autofocus />
         </div>
-        <div class="actions">
+        <div class="modal-actions">
+          <button class="ghost" @click="$emit('close')">取消</button>
           <button class="primary" @click="create" :disabled="!name.trim()">创建</button>
-          <button @click="$emit('close')">取消</button>
         </div>
       </div>
     </div>
@@ -29,26 +29,19 @@ import { useItemStore } from '@/stores/items'
 
 const typeStore = useTypeStore()
 const itemStore = useItemStore()
-
 const typeId = ref(typeStore.types[0]?.id || 1)
 const name = ref('')
-
 const emit = defineEmits<{ close: [] }>()
 
-async function create() {
-  if (name.value.trim()) {
-    await itemStore.create(typeId.value, name.value.trim())
-    emit('close')
-  }
-}
+async function create() { if (name.value.trim()) { await itemStore.create(typeId.value, name.value.trim()); emit('close') } }
 </script>
 
 <style scoped>
-.dialog-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 200; }
-.dialog { background: var(--surface); border-radius: 8px; padding: 24px; min-width: 320px; box-shadow: 0 4px 24px rgba(0,0,0,0.2); }
-h3 { margin-bottom: 16px; }
-.form-group { margin-bottom: 12px; }
-.form-group label { display: block; font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; }
-.form-group input, .form-group select { width: 100%; padding: 6px 10px; }
-.actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+.overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.3); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 200; }
+.modal { background: var(--surface-raised); border-radius: var(--radius-xl); padding: var(--space-6); min-width: 360px; box-shadow: var(--shadow-xl); border: 1px solid var(--border); }
+.modal-title { font-size: var(--font-size-lg); font-weight: var(--weight-semibold); margin: 0 0 var(--space-4); }
+.form-group { margin-bottom: var(--space-3); }
+.form-group label { display: block; font-size: var(--font-size-xs); color: var(--text-muted); margin-bottom: var(--space-1); font-weight: var(--weight-medium); }
+.form-group input, .form-group select { width: 100%; }
+.modal-actions { display: flex; gap: var(--space-2); justify-content: flex-end; margin-top: var(--space-5); }
 </style>

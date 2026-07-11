@@ -1,13 +1,11 @@
 <template>
-  <div>
-    <div class="tag-list">
-      <span v-for="tag in tagStore.tags" :key="tag.id" class="tag" :class="{ selected: tag.id === selectedId }" @click="selectTag(tag.id)">
-        # {{ tag.name }}
+  <div class="tag-list-wrap">
+    <div class="tags">
+      <span v-for="tag in tagStore.tags" :key="tag.id" class="tag" :class="{ active: tag.id === selectedId }" @click="selectTag(tag.id)">
+        #&nbsp;{{ tag.name }}
       </span>
     </div>
-    <div class="new-tag">
-      <input v-model="newName" placeholder="+ 新建标签" @keydown.enter="addTag" />
-    </div>
+    <input class="tag-input" v-model="name" placeholder="+ 新建标签" @keydown.enter="addTag" />
   </div>
 </template>
 
@@ -16,33 +14,28 @@ import { ref } from 'vue'
 import { useTagStore } from '@/stores/tags'
 
 const tagStore = useTagStore()
-
 const selectedId = ref<number | null>(null)
-const newName = ref('')
-
+const name = ref('')
 const emit = defineEmits<{ select: [id: number | null] }>()
 
-function selectTag(id: number) {
-  selectedId.value = selectedId.value === id ? null : id
-  emit('select', selectedId.value)
-}
-
+function selectTag(id: number) { selectedId.value = selectedId.value === id ? null : id; emit('select', selectedId.value) }
 async function addTag() {
-  const name = newName.value.trim()
-  if (name) {
-    await tagStore.create(name)
-    newName.value = ''
-  }
+  const n = name.value.trim()
+  if (n) { await tagStore.create(n); name.value = '' }
 }
 </script>
 
 <style scoped>
-.tag-list { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px; }
+.tag-list-wrap { padding: 0 var(--space-1); }
+.tags { display: flex; flex-wrap: wrap; gap: var(--space-1); margin-bottom: var(--space-1); }
 .tag {
-  font-size: 12px; padding: 2px 8px; border-radius: 10px; cursor: pointer;
-  background: var(--bg); border: 1px solid var(--border); user-select: none;
+  font-size: var(--font-size-xs); padding: 2px 10px; border-radius: var(--radius-full);
+  cursor: pointer; user-select: none; transition: all var(--duration-fast) var(--ease-out);
+  background: var(--bg); color: var(--text-secondary); border: 1px solid transparent;
 }
-.tag:hover { border-color: var(--accent); }
-.tag.selected { background: var(--accent); color: #fff; border-color: var(--accent); }
-.new-tag input { width: 100%; font-size: 12px; padding: 2px 6px; margin-top: 4px; }
+.tag:hover { color: var(--accent); border-color: var(--accent); }
+.tag.active { background: var(--accent); color: var(--accent-foreground); border-color: var(--accent); font-weight: var(--weight-medium); }
+.tag-input { width: 100%; font-size: var(--font-size-xs); height: 26px; border-color: transparent; background: var(--bg); }
+.tag-input:focus { border-color: var(--border-focus); background: var(--surface); }
+.tag-input::placeholder { color: var(--text-muted); }
 </style>

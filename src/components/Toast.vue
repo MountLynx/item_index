@@ -1,10 +1,12 @@
 <template>
   <Teleport to="body">
-    <div class="toast-container">
-      <div v-for="t in toasts" :key="t.id" class="toast" :class="t.type">
-        <span>{{ t.message }}</span>
-        <button class="close" @click="removeToast(t.id)">×</button>
-      </div>
+    <div class="toast-stack">
+      <TransitionGroup name="toast">
+        <div v-for="t in items" :key="t.id" class="toast" :class="t.type">
+          <span>{{ t.message }}</span>
+          <button class="close-btn" @click="remove(t.id)">×</button>
+        </div>
+      </TransitionGroup>
     </div>
   </Teleport>
 </template>
@@ -12,29 +14,35 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 
-interface ToastItem { id: number; message: string; type: 'success' | 'error' | 'info' }
-
-const toasts = ref<ToastItem[]>([])
+interface T { id: number; message: string; type: 'success' | 'error' | 'info' }
+const items = ref<T[]>([])
 let nextId = 0
 
-function addToast(message: string, type: 'success' | 'error' | 'info' = 'info') {
+function add(message: string, type: T['type']) {
   const id = nextId++
-  toasts.value.push({ id, message, type })
-  setTimeout(() => removeToast(id), 3000)
+  items.value.push({ id, message, type })
+  setTimeout(() => remove(id), 3500)
 }
+function remove(id: number) { items.value = items.value.filter(t => t.id !== id) }
 
-function removeToast(id: number) {
-  toasts.value = toasts.value.filter(t => t.id !== id)
-}
-
-defineExpose({ success: (m: string) => addToast(m, 'success'), error: (m: string) => addToast(m, 'error'), info: (m: string) => addToast(m, 'info') })
+defineExpose({ success: (m: string) => add(m, 'success'), error: (m: string) => add(m, 'error'), info: (m: string) => add(m, 'info') })
 </script>
 
 <style scoped>
-.toast-container { position: fixed; bottom: 16px; right: 16px; display: flex; flex-direction: column; gap: 8px; z-index: 300; }
-.toast { display: flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: 6px; font-size: 13px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
-.toast.success { background: #16A34A; color: #fff; }
-.toast.error { background: #DC2626; color: #fff; }
-.toast.info { background: var(--accent); color: #fff; }
-.close { background: none; border: none; color: inherit; font-size: 16px; cursor: pointer; padding: 0; }
+.toast-stack { position: fixed; bottom: var(--space-4); right: var(--space-4); display: flex; flex-direction: column; gap: var(--space-2); z-index: 300; pointer-events: none; }
+.toast {
+  display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-lg); font-size: var(--font-size-sm); font-weight: var(--weight-medium);
+  box-shadow: var(--shadow-lg); pointer-events: auto; min-width: 200px;
+}
+.toast.success { background: var(--success); color: #fff; }
+.toast.error { background: var(--danger); color: #fff; }
+.toast.info { background: var(--surface-raised); color: var(--text-primary); border: 1px solid var(--border); }
+.close-btn { background: none; border: none; color: inherit; font-size: 18px; cursor: pointer; padding: 0; line-height: 1; opacity: 0.7; }
+.close-btn:hover { opacity: 1; }
+
+.toast-enter-active { transition: all var(--duration-slow) var(--ease-out); }
+.toast-leave-active { transition: all var(--duration-fast) var(--ease-in); }
+.toast-enter-from { opacity: 0; transform: translateY(12px) scale(0.95); }
+.toast-leave-to { opacity: 0; transform: translateY(-8px) scale(0.95); }
 </style>

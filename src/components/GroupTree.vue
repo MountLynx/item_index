@@ -1,11 +1,11 @@
 <template>
-  <div>
+  <div class="group-tree">
     <div v-for="group in groupStore.tree" :key="group.id">
       <GroupTreeNode :group="group" :depth="0" :selected-id="selectedId" @select="onSelect" />
     </div>
-    <div class="new-group">
-      <input v-if="adding" ref="newInput" v-model="newName" placeholder="分组名" @keydown.enter="addRoot" @keydown.escape="cancelAdd" @blur="cancelAdd" />
-      <span v-else class="add-btn" @click="startAdd">+ 新建分组</span>
+    <div class="add-row" @click="startAdd">
+      <span v-if="!adding" class="add-hint">+ 新建分组</span>
+      <input v-else ref="addInput" v-model="name" placeholder="分组名" @keydown.enter="doAdd" @keydown.escape="cancel" @blur="cancel" />
     </div>
   </div>
 </template>
@@ -16,39 +16,25 @@ import { useGroupStore } from '@/stores/groups'
 import GroupTreeNode from './GroupTreeNode.vue'
 
 const groupStore = useGroupStore()
-
 const selectedId = ref<number | null>(null)
 const adding = ref(false)
-const newName = ref('')
-const newInput = ref<HTMLInputElement | null>(null)
+const name = ref('')
+const addInput = ref<HTMLInputElement | null>(null)
 
 const emit = defineEmits<{ select: [id: number | null] }>()
 
-function onSelect(id: number | null) {
-  selectedId.value = id
-  emit('select', id)
+function onSelect(id: number | null) { selectedId.value = id; emit('select', id) }
+async function startAdd() { adding.value = true; await nextTick(); addInput.value?.focus() }
+async function doAdd() {
+  if (name.value.trim()) { await groupStore.create(name.value.trim()); name.value = ''; adding.value = false }
 }
-
-async function startAdd() {
-  adding.value = true
-  await nextTick()
-  newInput.value?.focus()
-}
-
-async function addRoot() {
-  if (newName.value.trim()) {
-    await groupStore.create(newName.value.trim())
-    newName.value = ''
-    adding.value = false
-  }
-}
-
-function cancelAdd() { adding.value = false; newName.value = '' }
+function cancel() { adding.value = false; name.value = '' }
 </script>
 
 <style scoped>
-.new-group { padding: 2px 0 2px 16px; }
-.add-btn { font-size: 12px; color: var(--text-secondary); cursor: pointer; }
-.add-btn:hover { color: var(--accent); }
-.new-group input { width: 100%; font-size: 12px; padding: 2px 6px; }
+.group-tree { padding: 0; }
+.add-row { padding: var(--space-1) var(--space-2) var(--space-1) 28px; cursor: pointer; }
+.add-hint { font-size: var(--font-size-xs); color: var(--text-muted); transition: color var(--duration-fast) var(--ease-out); }
+.add-hint:hover { color: var(--accent); }
+.add-row input { width: 100%; font-size: var(--font-size-xs); height: 26px; }
 </style>
