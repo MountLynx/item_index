@@ -29,7 +29,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive } from 'vue'
+import { computed, reactive } from 'vue'
 import { useItemStore } from '@/stores/items'
 import { useTypeStore } from '@/stores/types'
 import type { Item } from '@/types/bindings'

@@ -13,7 +13,7 @@ import { ref, nextTick } from 'vue'
 import { useGroupStore } from '@/stores/groups'
 import GroupTreeNode from './GroupTreeNode.vue'
 
-const props = defineProps<{ selectedId: number | null }>()
+defineProps<{ selectedId: number | null }>()
 const emit = defineEmits<{ select: [id: number | null] }>()
 
 const groupStore = useGroupStore()

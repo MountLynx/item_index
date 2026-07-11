@@ -12,16 +12,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { useToast } from '@/composables/toast'
 import TablerIcon from './TablerIcon.vue'
 
-interface T { id: number; message: string; type: 'success' | 'error' | 'info' }
-const items = ref<T[]>([])
-let nid = 0
-
-function add(msg: string, type: T['type']) { const id = nid++; items.value.push({ id, message: msg, type }); setTimeout(() => remove(id), 3500) }
-function remove(id: number) { items.value = items.value.filter(t => t.id !== id) }
-defineExpose({ success: (m: string) => add(m, 'success'), error: (m: string) => add(m, 'error'), info: (m: string) => add(m, 'info') })
+const { items, remove } = useToast()
 </script>
 
 <style scoped>
