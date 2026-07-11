@@ -37,7 +37,7 @@ async function refresh() {
   loading.value = true
   try { files.value = await invoke<FileNode>('list_files', { itemId: id }); last = id } catch { files.value = null } finally { loading.value = false }
 }
-watch(() => props.itemId, refresh)
+watch(() => props.itemId, refresh, { immediate: true })
 
 async function onDrop(e: DragEvent) {
   dragOver.value = false; if (!props.itemId) return
