@@ -31,16 +31,18 @@
         <div class="pick-grid" ref="gridEl" @scroll="onScroll">
           <div :style="{ height: totalHeight + 'px', position: 'relative' }">
             <div :style="{ transform: `translateY(${offsetY}px)` }">
-              <button
-                v-for="name in visibleIcons"
-                :key="name"
-                class="pick-item"
-                :class="{ sel: modelValue === name }"
-                :title="name"
-                @click="select(name)"
-              >
-                <TablerIcon :name="name" :size="18" />
-              </button>
+              <div v-for="(row, ri) in visibleRows" :key="ri" class="pick-row">
+                <button
+                  v-for="name in row"
+                  :key="name"
+                  class="pick-item"
+                  :class="{ sel: modelValue === name }"
+                  :title="name"
+                  @click="select(name)"
+                >
+                  <TablerIcon :name="name" :size="18" />
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -107,15 +109,23 @@ const filtered = computed(() => {
   return all
 })
 
-const visibleIcons = computed(() => {
+const visibleRows = computed(() => {
   const list = search.value.trim() ? filtered.value : currentIcons.value
-  if (list.length <= COLS * (VISIBLE_ROWS + BUFFER * 2)) return list
-
+  if (list.length <= COLS * (VISIBLE_ROWS + BUFFER * 2)) {
+    // Small list: render all rows
+    const rows: string[][] = []
+    for (let i = 0; i < list.length; i += COLS) rows.push(list.slice(i, i + COLS))
+    return rows
+  }
   const startRow = Math.max(0, Math.floor(scrollTop.value / ROW_H) - BUFFER)
   const endRow = startRow + VISIBLE_ROWS + BUFFER * 2
-  const start = startRow * COLS
-  const end = Math.min(list.length, endRow * COLS)
-  return list.slice(start, end)
+  const rows: string[][] = []
+  for (let r = startRow; r <= endRow; r++) {
+    const start = r * COLS
+    if (start >= list.length) break
+    rows.push(list.slice(start, start + COLS))
+  }
+  return rows
 })
 
 const totalHeight = computed(() => {
@@ -221,13 +231,17 @@ watch([activeGroup, search], () => { scrollTop.value = 0 })
   padding: 4px;
   contain: strict;
 }
+.pick-row {
+  display: flex;
+  height: 32px;
+}
 .pick-item {
   display: inline-flex; align-items: center; justify-content: center;
   width: 36px; height: 32px; padding: 0;
   border: none; border-radius: var(--r-sm);
   background: transparent; color: var(--text-secondary);
   cursor: pointer; transition: all var(--fast) var(--ease);
-  vertical-align: top;
+  flex-shrink: 0;
 }
 .pick-item:hover { background: var(--surface-hover); color: var(--text); }
 .pick-item.sel { background: var(--accent-subtle); color: var(--accent); }
