@@ -1,10 +1,10 @@
 <template>
   <component :is="icon" v-if="icon" :size="size" :stroke="stroke" class="ti" />
-  <span v-else class="ti-fb">{{ fallback }}</span>
+  <span v-else class="ti-emoji">{{ isEmoji ? props.name : fallback }}</span>
 </template>
 
 <script setup lang="ts">
-import { computed, shallowRef, watch } from 'vue'
+import { computed } from 'vue'
 import {
   IconDatabase, IconPlus, IconMoon, IconSun, IconSettings,
   IconFolder, IconFolderOpen, IconTag, IconHash, IconChevronRight,
@@ -29,9 +29,10 @@ const props = withDefaults(defineProps<{
 }>(), { size: 20, stroke: 1.5, fallback: '◆' })
 
 const icon = computed(() => map[props.name] || null)
+const isEmoji = computed(() => /^(\p{Emoji}|\p{Emoji_Presentation}|\p{Emoji_Modifier_Base}|\p{Emoji_Component})+$/u.test(props.name))
 </script>
 
 <style scoped>
 .ti { flex-shrink: 0; display: inline-block; vertical-align: middle; }
-.ti-fb { flex-shrink: 0; }
+.ti-emoji { flex-shrink: 0; font-size: 1.1em; line-height: 1; }
 </style>

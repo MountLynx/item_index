@@ -37,9 +37,9 @@ const showCreate = ref(false)
 const path = ref('')
 const emit = defineEmits<{ repoOpened: [] }>()
 
-async function openRepo() { const p = prompt('输入仓库路径:'); if (p) { await repoStore.openRepo(p); await load() } }
+async function openRepo() { const p = prompt('输入仓库路径:'); if (p) { await repoStore.openRepo(p); await load(); emit('repoOpened') } }
 async function doCreate() { if (path.value) { await repoStore.createRepo(path.value); await load(); emit('repoOpened') } }
-async function load() { await Promise.all([typeStore.fetchAll(), groupStore.fetchAll(), tagStore.fetchAll(), itemStore.fetchList()]); emit('repoOpened') }
+async function load() { await Promise.all([typeStore.fetchAll(), groupStore.fetchAll(), tagStore.fetchAll(), itemStore.fetchList()]) }
 </script>
 
 <style scoped>
