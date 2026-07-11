@@ -29,6 +29,8 @@ pub fn run() {
             commands::types::add_field,
             commands::types::remove_field,
             commands::types::reorder_fields,
+            commands::types::update_item_type,
+            commands::types::update_field,
             commands::items::create_item,
             commands::items::get_item,
             commands::items::list_items,

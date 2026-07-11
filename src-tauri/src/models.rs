@@ -14,7 +14,9 @@ pub struct Field {
     pub type_id: i64,
     pub name: String,
     pub field_type: String,
+    pub icon: String,
     pub position: i32,
+    pub label: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

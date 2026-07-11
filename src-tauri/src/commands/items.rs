@@ -43,12 +43,12 @@ async fn fetch_type(pool: &SqlitePool, type_id: i64) -> Result<ItemType, String>
         "SELECT id, name, icon FROM item_types WHERE id = ?"
     ).bind(type_id).fetch_one(pool).await.map_err(|e| e.to_string())?;
 
-    let field_rows: Vec<(i64, i64, String, String, i32)> = sqlx::query_as(
-        "SELECT id, type_id, name, field_type, position FROM fields WHERE type_id = ? ORDER BY position"
+    let field_rows: Vec<(i64, i64, String, String, String, i32, String)> = sqlx::query_as(
+        "SELECT id, type_id, name, field_type, icon, position, label FROM fields WHERE type_id = ? ORDER BY position"
     ).bind(id).fetch_all(pool).await.map_err(|e| e.to_string())?;
 
-    let fields: Vec<Field> = field_rows.into_iter().map(|(fid, tid, n, ft, pos)| Field {
-        id: fid, type_id: tid, name: n, field_type: ft, position: pos,
+    let fields: Vec<Field> = field_rows.into_iter().map(|(fid, tid, n, ft, ficon, pos, label)| Field {
+        id: fid, type_id: tid, name: n, field_type: ft, icon: ficon, position: pos, label,
     }).collect();
 
     Ok(ItemType { id, name, icon, fields })

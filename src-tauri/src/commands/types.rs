@@ -24,8 +24,8 @@ pub async fn list_item_types(state: State<'_, AppState>) -> Result<Vec<ItemType>
 
     let mut result = vec![];
     for (id, name, icon) in type_rows {
-        let field_rows: Vec<(i64, i64, String, String, i32)> = sqlx::query_as(
-            "SELECT f.id, f.type_id, f.name, f.field_type, f.position FROM fields f WHERE f.type_id = ? ORDER BY f.position",
+        let field_rows: Vec<(i64, i64, String, String, String, i32, String)> = sqlx::query_as(
+            "SELECT f.id, f.type_id, f.name, f.field_type, f.icon, f.position, f.label FROM fields f WHERE f.type_id = ? ORDER BY f.position",
         )
         .bind(id)
         .fetch_all(&pool)
@@ -34,12 +34,14 @@ pub async fn list_item_types(state: State<'_, AppState>) -> Result<Vec<ItemType>
 
         let fields = field_rows
             .into_iter()
-            .map(|(fid, tid, fname, ftype, pos)| Field {
+            .map(|(fid, tid, fname, ftype, ficon, pos, label)| Field {
                 id: fid,
                 type_id: tid,
                 name: fname,
                 field_type: ftype,
+                icon: ficon,
                 position: pos,
+                label,
             })
             .collect();
 
@@ -101,8 +103,12 @@ pub async fn add_field(
     type_id: i64,
     name: String,
     field_type: String,
+    icon: Option<String>,
+    label: Option<String>,
 ) -> Result<Field, String> {
     let pool = get_pool(&state)?;
+    let icon = icon.unwrap_or_else(|| "circle".to_string());
+    let label = label.unwrap_or_default();
 
     let max_pos: Option<i32> =
         sqlx::query_scalar("SELECT MAX(position) FROM fields WHERE type_id = ?")
@@ -113,12 +119,14 @@ pub async fn add_field(
     let position = max_pos.unwrap_or(-1) + 1;
 
     let id: i64 = sqlx::query_scalar(
-        "INSERT INTO fields (type_id, name, field_type, position) VALUES (?, ?, ?, ?) RETURNING id",
+        "INSERT INTO fields (type_id, name, field_type, icon, position, label) VALUES (?, ?, ?, ?, ?, ?) RETURNING id",
     )
     .bind(type_id)
     .bind(&name)
     .bind(&field_type)
+    .bind(&icon)
     .bind(position)
+    .bind(&label)
     .fetch_one(&pool)
     .await
     .map_err(|e| e.to_string())?;
@@ -128,7 +136,9 @@ pub async fn add_field(
         type_id,
         name,
         field_type,
+        icon,
         position,
+        label,
     })
 }
 
@@ -160,4 +170,87 @@ pub async fn reorder_fields(
             .map_err(|e| e.to_string())?;
     }
     Ok(())
+}
+
+#[tauri::command]
+pub async fn update_item_type(
+    state: State<'_, AppState>,
+    id: i64,
+    name: String,
+    icon: String,
+) -> Result<ItemType, String> {
+    let pool = get_pool(&state)?;
+
+    sqlx::query("UPDATE item_types SET name = ?, icon = ? WHERE id = ?")
+        .bind(&name)
+        .bind(&icon)
+        .bind(id)
+        .execute(&pool)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    // Return updated type with its fields
+    let field_rows: Vec<(i64, i64, String, String, String, i32, String)> = sqlx::query_as(
+        "SELECT f.id, f.type_id, f.name, f.field_type, f.icon, f.position, f.label FROM fields f WHERE f.type_id = ? ORDER BY f.position",
+    )
+    .bind(id)
+    .fetch_all(&pool)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    let fields = field_rows
+        .into_iter()
+        .map(|(fid, tid, fname, ftype, ficon, pos, label)| Field {
+            id: fid,
+            type_id: tid,
+            name: fname,
+            field_type: ftype,
+            icon: ficon,
+            position: pos,
+            label,
+        })
+        .collect();
+
+    Ok(ItemType { id, name, icon, fields })
+}
+
+#[tauri::command]
+pub async fn update_field(
+    state: State<'_, AppState>,
+    id: i64,
+    name: String,
+    field_type: String,
+    icon: String,
+    label: String,
+) -> Result<Field, String> {
+    let pool = get_pool(&state)?;
+
+    sqlx::query("UPDATE fields SET name = ?, field_type = ?, icon = ?, label = ? WHERE id = ?")
+        .bind(&name)
+        .bind(&field_type)
+        .bind(&icon)
+        .bind(&label)
+        .bind(id)
+        .execute(&pool)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    // Return updated field
+    let row: (i64, i64, String, String, String, i32, String) = sqlx::query_as(
+        "SELECT id, type_id, name, field_type, icon, position, label FROM fields WHERE id = ?",
+    )
+    .bind(id)
+    .fetch_one(&pool)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    Ok(Field {
+        id: row.0,
+        type_id: row.1,
+        name: row.2,
+        field_type: row.3,
+        icon: row.4,
+        position: row.5,
+        label: row.6,
+    })
 }
