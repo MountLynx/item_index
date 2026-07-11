@@ -7,7 +7,7 @@
       </div>
       <label v-else-if="field.field_type === 'checkbox'" class="checkbox-wrap">
         <input type="checkbox" :checked="!!getValue(field.name)" @change="toggleCheck(field.name)" />
-        <span class="check-label">{{ getValue(field.name) ? '已完成' : '未完成' }}</span>
+        <span class="check-label">{{ field.label || field.name }}</span>
       </label>
     </div>
     <div v-if="detail.item_type.fields.length === 0" class="text-muted" style="font-size:var(--font-size-xs)">此类型无自定义属性</div>
