@@ -1,5 +1,6 @@
 pub mod db;
 pub mod models;
+pub mod safe_path;
 
 use tauri::Manager;
 
