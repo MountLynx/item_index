@@ -1,10 +1,10 @@
 <template>
   <div>
-    <div class="tree-node" :class="{ active: group.id === selectedId }" :style="{ paddingLeft: depth * 18 + 6 + 'px' }">
-      <span class="arrow" @click="toggleExpand" :class="{ open: expanded }">
-        {{ group.children.length > 0 ? '▸' : '' }}
+    <div class="row" :class="{ sel: group.id === selectedId }" :style="{ paddingLeft: depth * 18 + 8 + 'px' }">
+      <span class="arr" :class="{ open: expanded }" @click="expanded = !expanded">
+        <TablerIcon v-if="group.children.length" name="chevron-right" :size="12" />
       </span>
-      <span class="icon">📁</span>
+      <TablerIcon :name="expanded ? 'folder-open' : 'folder'" :size="15" />
       <span class="name" @click="selectGroup">{{ group.name }}</span>
     </div>
     <div v-if="expanded">
@@ -16,30 +16,27 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import type { Group } from '@/types/bindings'
+import TablerIcon from './TablerIcon.vue'
 
 const props = defineProps<{ group: Group; depth: number; selectedId: number | null }>()
 const emit = defineEmits<{ select: [id: number | null] }>()
 
 const expanded = ref(true)
-
-function toggleExpand() { expanded.value = !expanded.value }
 function selectGroup() { emit('select', props.selectedId === props.group.id ? null : props.group.id) }
 function onSelect(id: number | null) { emit('select', id) }
 </script>
 
 <style scoped>
-.tree-node {
-  display: flex; align-items: center; gap: var(--space-1);
-  padding: var(--space-1) var(--space-2); margin: 1px var(--space-1);
-  border-radius: var(--radius-md); cursor: pointer; user-select: none;
-  font-size: var(--font-size-sm); transition: background var(--duration-fast) var(--ease-out);
+.row {
+  display: flex; align-items: center; gap: 4px;
+  padding: 3px 8px; margin: 1px 4px; border-radius: var(--r-md);
+  cursor: pointer; user-select: none; font-size: var(--fs-sm);
+  transition: background var(--fast) var(--ease);
 }
-.tree-node:hover { background: var(--surface-hover); }
-.tree-node.active { background: var(--accent); color: var(--accent-foreground); }
-
-.arrow { width: 12px; font-size: 8px; text-align: center; flex-shrink: 0; transition: transform var(--duration-fast) var(--ease-out); color: var(--text-muted); }
-.arrow.open { transform: rotate(90deg); }
-.tree-node.active .arrow { color: var(--accent-foreground); }
-.icon { font-size: 12px; flex-shrink: 0; }
-.name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: var(--weight-normal); }
+.row:hover { background: var(--surface-hover); }
+.row.sel { background: var(--accent); color: var(--accent-fg); }
+.arr { width: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--text-muted); transition: transform var(--fast) var(--ease); }
+.arr.open { transform: rotate(90deg); }
+.row.sel .arr { color: var(--accent-fg); }
+.name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 </style>

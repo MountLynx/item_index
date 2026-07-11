@@ -48,5 +48,5 @@ CREATE TABLE item_tags (
     PRIMARY KEY(item_id, tag_id)
 );
 
-INSERT INTO item_types (id, name, icon) VALUES (1, '通用', '📄'), (2, '任务', '✅');
+INSERT INTO item_types (id, name, icon) VALUES (1, '通用', 'file'), (2, '任务', 'checkbox');
 INSERT INTO fields (type_id, name, field_type, position) VALUES (1, '备注', 'text', 0), (2, '描述', 'text', 0), (2, '完成', 'checkbox', 1);

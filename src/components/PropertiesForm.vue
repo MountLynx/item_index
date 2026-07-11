@@ -41,20 +41,10 @@ function save() {
 </script>
 
 <style scoped>
-.properties-form { display: flex; flex-direction: column; gap: var(--space-2); }
-.field { }
-.field-label {
-  display: block; font-size: var(--font-size-xs); color: var(--text-muted);
-  margin-bottom: 2px; font-weight: var(--weight-medium);
-}
+.properties-form { display: flex; flex-direction: column; gap: 8px; }
+.field-label { display: block; font-size: var(--fs-xs); color: var(--text-secondary); margin-bottom: 2px; font-weight: var(--fw-medium); }
 .field-input-wrap input { width: 100%; }
-
-.checkbox-wrap {
-  display: flex; align-items: center; gap: var(--space-2); cursor: pointer;
-  padding: var(--space-1) 0;
-}
-.checkbox-wrap input[type="checkbox"] {
-  width: 16px; height: 16px; cursor: pointer; accent-color: var(--accent);
-}
-.check-label { font-size: var(--font-size-sm); color: var(--text-secondary); }
+.checkbox-wrap { display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 4px 0; }
+.checkbox-wrap input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; accent-color: var(--accent); }
+.check-label { font-size: var(--fs-sm); color: var(--text-secondary); }
 </style>

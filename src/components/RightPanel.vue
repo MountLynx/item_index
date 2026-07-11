@@ -1,46 +1,33 @@
 <template>
-  <aside class="right-panel">
-    <div v-if="!detail" class="empty-hint">
-      <span class="hint-icon">←</span>
+  <aside class="rp">
+    <div v-if="!detail" class="empty">
+      <TablerIcon name="arrow-left" :size="28" :stroke="1" />
       <p>选择条目查看详情</p>
     </div>
     <template v-else>
-      <div class="item-header">
-        <div class="item-title">
-          <span class="item-icon">{{ detail.item_type.icon }}</span>
-          <span class="item-name">{{ detail.item.name }}</span>
-        </div>
-        <div class="item-id font-mono text-muted">{{ detail.item.id }}</div>
+      <div class="hd">
+        <div class="title"><TablerIcon :name="detail.item_type.icon" :size="20" /> {{ detail.item.name }}</div>
+        <div class="id font-mono">{{ detail.item.id }}</div>
       </div>
-
-      <div class="panel-section">
-        <div class="section-label">属性</div>
-        <PropertiesForm :detail="detail" />
-      </div>
-
-      <div class="section-sep" />
-
-      <div class="panel-section">
-        <div class="section-label">分组</div>
-        <div class="chip-row">
-          <span v-for="g in detail.groups" :key="g.id" class="chip">📁 {{ g.name }}</span>
-          <span v-if="detail.groups.length === 0" class="text-muted text-sm">未分组</span>
+      <div class="sec"><div class="lbl">属性</div><PropertiesForm :detail="detail" /></div>
+      <div class="sep" />
+      <div class="sec">
+        <div class="lbl">分组</div>
+        <div class="chips">
+          <span v-for="g in detail.groups" :key="g.id" class="chip"><TablerIcon name="folder" :size="13" />{{ g.name }}</span>
+          <span v-if="detail.groups.length === 0" class="text-muted text-xs">未分组</span>
         </div>
       </div>
-
-      <div class="section-sep" />
-
-      <div class="panel-section">
-        <div class="section-label">标签</div>
-        <div class="chip-row">
-          <span v-for="t in detail.tags" :key="t.id" class="chip tag-chip"># {{ t.name }}</span>
-          <span v-if="detail.tags.length === 0" class="text-muted text-sm">无标签</span>
+      <div class="sep" />
+      <div class="sec">
+        <div class="lbl">标签</div>
+        <div class="chips">
+          <span v-for="t in detail.tags" :key="t.id" class="chip tag"><TablerIcon name="hash" :size="13" />{{ t.name }}</span>
+          <span v-if="detail.tags.length === 0" class="text-muted text-xs">无标签</span>
         </div>
       </div>
-
-      <div class="section-sep" />
-
-      <div class="panel-section file-section">
+      <div class="sep" />
+      <div class="sec file-sec">
         <FileTree :item-id="detail.item.id" />
       </div>
     </template>
@@ -52,50 +39,26 @@ import { computed } from 'vue'
 import { useItemStore } from '@/stores/items'
 import PropertiesForm from './PropertiesForm.vue'
 import FileTree from './FileTree.vue'
+import TablerIcon from './TablerIcon.vue'
 
 const itemStore = useItemStore()
 const detail = computed(() => itemStore.detail)
 </script>
 
 <style scoped>
-.right-panel {
-  width: var(--right-panel-width); flex-shrink: 0;
-  border-left: 1px solid var(--border);
-  background: var(--surface);
-  display: flex; flex-direction: column;
-  overflow-y: auto;
+.rp {
+  width: var(--right-w); flex-shrink: 0; border-left: 1px solid var(--border);
+  background: var(--surface); display: flex; flex-direction: column; overflow-y: auto;
 }
-.empty-hint {
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  height: 100%; color: var(--text-muted); gap: var(--space-2);
-}
-.hint-icon { font-size: 32px; opacity: 0.3; }
-
-.item-header { padding: var(--space-4) var(--space-4) var(--space-3); }
-.item-title { display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-1); }
-.item-icon { font-size: 20px; }
-.item-name { font-size: var(--font-size-lg); font-weight: var(--weight-semibold); }
-.item-id {
-  font-size: var(--font-size-xs); color: var(--text-muted);
-  background: var(--surface-hover); padding: 1px 6px; border-radius: var(--radius-xs);
-  display: inline-block; margin-top: 2px;
-}
-
-.panel-section { padding: var(--space-2) var(--space-4); }
-.section-label {
-  font-size: var(--font-size-xs); font-weight: var(--weight-semibold);
-  color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;
-  margin-bottom: var(--space-2);
-}
-.section-sep { height: 1px; background: var(--border-light); margin: 0 var(--space-4); }
-.file-section { flex: 1; min-height: 120px; }
-
-.chip-row { display: flex; flex-wrap: wrap; gap: var(--space-1); }
-.chip {
-  font-size: var(--font-size-xs); padding: 2px 10px; border-radius: var(--radius-full);
-  background: var(--bg); border: 1px solid var(--border-light); color: var(--text-secondary);
-}
-.tag-chip { color: var(--accent); border-color: var(--accent-subtle); background: var(--accent-subtle); }
-
-.text-sm { font-size: var(--font-size-xs); }
+.empty { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 8px; color: var(--text-muted); }
+.hd { padding: 16px 16px 12px; }
+.title { display: flex; align-items: center; gap: 8px; font-size: var(--fs-lg); font-weight: var(--fw-semibold); margin-bottom: 4px; }
+.id { font-size: var(--fs-xs); color: var(--text-secondary); background: var(--surface-hover); padding: 1px 6px; border-radius: var(--r-sm); display: inline-block; }
+.sec { padding: 8px 16px; }
+.lbl { font-size: var(--fs-xs); font-weight: var(--fw-semibold); color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+.sep { height: 1px; background: var(--border); margin: 0 16px; }
+.file-sec { flex: 1; min-height: 100px; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.chip { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-xs); padding: 2px 10px; border-radius: var(--r-full); background: var(--bg); color: var(--text-secondary); }
+.chip.tag { color: var(--accent); background: var(--accent-subtle); }
 </style>

@@ -1,18 +1,18 @@
 <template>
   <div class="welcome">
-    <div class="welcome-card">
-      <div class="logo-mark">◆</div>
-      <h1 class="title">Vault</h1>
-      <p class="subtitle">本地优先的对象管理器</p>
-      <div class="actions">
-        <button class="primary" @click="openRepo">📂 打开仓库</button>
-        <button @click="showCreate = !showCreate">✨ 创建仓库</button>
+    <div class="card">
+      <TablerIcon name="database" :size="40" :stroke="1.5" class="logo" />
+      <h1>Vault</h1>
+      <p>本地优先的对象管理器</p>
+      <div class="btns">
+        <button class="primary" @click="openRepo"><TablerIcon name="folder-open" :size="17" /> 打开仓库</button>
+        <button @click="showCreate = !showCreate"><TablerIcon name="plus" :size="17" /> 创建仓库</button>
       </div>
-      <div v-if="showCreate" class="create-panel">
+      <div v-if="showCreate" class="create">
         <input v-model="path" placeholder="仓库路径，如 C:\Users\me\MyVault" @keydown.enter="doCreate" />
-        <div class="create-actions">
-          <button class="primary" @click="doCreate">创建</button>
+        <div class="create-btns">
           <button class="ghost" @click="showCreate = false">取消</button>
+          <button class="primary" @click="doCreate">创建</button>
         </div>
       </div>
     </div>
@@ -26,37 +26,30 @@ import { useTypeStore } from '@/stores/types'
 import { useGroupStore } from '@/stores/groups'
 import { useTagStore } from '@/stores/tags'
 import { useItemStore } from '@/stores/items'
+import TablerIcon from './TablerIcon.vue'
 
 const repoStore = useRepoStore()
 const typeStore = useTypeStore()
 const groupStore = useGroupStore()
 const tagStore = useTagStore()
 const itemStore = useItemStore()
-
 const showCreate = ref(false)
 const path = ref('')
 const emit = defineEmits<{ repoOpened: [] }>()
 
-async function openRepo() { const p = prompt('输入仓库路径:'); if (p) { await repoStore.openRepo(p); await loadAll(); emit('repoOpened') } }
-async function doCreate() { if (path.value) { await repoStore.createRepo(path.value); await loadAll(); emit('repoOpened') } }
-async function loadAll() { await Promise.all([typeStore.fetchAll(), groupStore.fetchAll(), tagStore.fetchAll(), itemStore.fetchList()]) }
+async function openRepo() { const p = prompt('输入仓库路径:'); if (p) { await repoStore.openRepo(p); await load() } }
+async function doCreate() { if (path.value) { await repoStore.createRepo(path.value); await load(); emit('repoOpened') } }
+async function load() { await Promise.all([typeStore.fetchAll(), groupStore.fetchAll(), tagStore.fetchAll(), itemStore.fetchList()]); emit('repoOpened') }
 </script>
 
 <style scoped>
-.welcome {
-  display: flex; align-items: center; justify-content: center; height: 100vh;
-  background: var(--bg);
-}
-.welcome-card {
-  text-align: center; padding: var(--space-10); border-radius: var(--radius-2xl);
-  background: var(--surface); border: 1px solid var(--border-light);
-  box-shadow: var(--shadow-md); max-width: 420px; width: 100%;
-}
-.logo-mark { font-size: 48px; color: var(--accent); margin-bottom: var(--space-4); line-height: 1; }
-.title { font-size: var(--font-size-2xl); font-weight: var(--weight-bold); color: var(--text-primary); margin: 0 0 var(--space-1); }
-.subtitle { font-size: var(--font-size-base); color: var(--text-secondary); margin: 0 0 var(--space-6); }
-.actions { display: flex; gap: var(--space-2); justify-content: center; margin-bottom: var(--space-4); }
-.create-panel { text-align: left; }
-.create-panel input { width: 100%; margin-bottom: var(--space-2); }
-.create-actions { display: flex; gap: var(--space-2); justify-content: flex-end; }
+.welcome { display: flex; align-items: center; justify-content: center; height: 100vh; background: var(--bg); }
+.card { text-align: center; padding: 48px; max-width: 400px; width: 100%; }
+.logo { color: var(--accent); margin-bottom: 12px; }
+h1 { font-size: var(--fs-2xl); font-weight: var(--fw-bold); margin: 0 0 4px; }
+p { font-size: var(--fs-base); color: var(--text-secondary); margin: 0 0 24px; }
+.btns { display: flex; gap: 8px; justify-content: center; margin-bottom: 16px; }
+.create { text-align: left; }
+.create input { width: 100%; margin-bottom: 8px; }
+.create-btns { display: flex; gap: 8px; justify-content: flex-end; }
 </style>
