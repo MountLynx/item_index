@@ -11,8 +11,8 @@
       <button class="icon-btn" @click="themeStore.toggle()" :title="themeStore.mode === 'light' ? '深色模式' : '浅色模式'">
         <TablerIcon :name="themeStore.mode === 'light' ? 'moon' : 'sun'" :size="18" />
       </button>
-      <button class="icon-btn" @click="$emit('settings')" title="设置">
-        <TablerIcon name="settings" :size="18" />
+      <button class="icon-btn" @click="$emit('openTypeManager')" title="类别管理">
+        <TablerIcon name="category" :size="18" />
       </button>
     </div>
   </header>
@@ -27,7 +27,7 @@ const repoStore = useRepoStore()
 const themeStore = useThemeStore()
 
 function basename(p: string): string { return p.split(/[/\\]/).pop() || p }
-defineEmits<{ newItem: []; settings: [] }>()
+defineEmits<{ newItem: []; openTypeManager: [] }>()
 </script>
 
 <style scoped>

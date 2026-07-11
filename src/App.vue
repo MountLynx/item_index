@@ -3,7 +3,7 @@
     <EmptyState v-if="!repoStore.isOpen" @repo-opened="onRepoOpened" />
 
     <template v-else>
-      <Topbar @new-item="showNewItem = true" @settings="showSettings = true" />
+      <Topbar @new-item="showNewItem = true" @open-type-manager="rightTab = 'types'" />
       <div class="main">
         <Sidebar />
         <CenterList @new-item="showNewItem = true" />
@@ -13,7 +13,6 @@
     </template>
 
     <NewItemDialog v-if="showNewItem" @close="showNewItem = false" />
-    <SettingsPanel v-if="showSettings" @close="showSettings = false" />
     <Toast ref="toastRef" />
   </div>
 </template>
@@ -33,7 +32,6 @@ import CenterList from '@/components/CenterList.vue'
 import RightPanel from '@/components/RightPanel.vue'
 import StatusBar from '@/components/StatusBar.vue'
 import NewItemDialog from '@/components/NewItemDialog.vue'
-import SettingsPanel from '@/components/SettingsPanel.vue'
 import Toast from '@/components/Toast.vue'
 
 const repoStore = useRepoStore()
@@ -44,7 +42,6 @@ const tagStore = useTagStore()
 const itemStore = useItemStore()
 
 const showNewItem = ref(false)
-const showSettings = ref(false)
 const rightTab = ref<'detail' | 'types'>('detail')
 const toastRef = ref<InstanceType<typeof Toast> | null>(null)
 
