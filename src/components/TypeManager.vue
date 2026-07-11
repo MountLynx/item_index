@@ -42,13 +42,7 @@
           <!-- Inline edit state -->
           <template v-else>
             <div class="edit-row">
-              <input
-                v-model="editIcon"
-                class="icon-input"
-                placeholder="图标"
-                @keydown.enter="saveEditType(t.id)"
-                @keydown.escape="cancelEditType"
-              />
+              <IconPicker v-model="editIcon" />
               <input
                 v-model="editName"
                 class="name-input"
@@ -76,13 +70,7 @@
         </template>
         <template v-else>
           <div class="edit-row">
-            <input
-              v-model="newIcon"
-              class="icon-input"
-              placeholder="图标"
-              @keydown.enter="createType"
-              @keydown.escape="showNewType = false"
-            />
+            <IconPicker v-model="newIcon" />
             <input
               v-model="newName"
               class="name-input"
@@ -125,13 +113,7 @@
         </template>
         <template v-else>
           <div class="edit-row">
-            <input
-              v-model="catIcon"
-              class="icon-input"
-              placeholder="图标"
-              @keydown.enter="saveCategory"
-              @keydown.escape="editingCategory = false"
-            />
+            <IconPicker v-model="catIcon" />
             <input
               v-model="catName"
               class="name-input"
@@ -194,11 +176,7 @@
           <!-- Inline edit state -->
           <template v-else>
             <div class="field-edit-row">
-              <input
-                v-model="fieldEditIcon"
-                class="icon-input-sm"
-                placeholder="图标"
-              />
+              <IconPicker v-model="fieldEditIcon" />
               <input
                 v-model="fieldEditName"
                 class="name-input"
@@ -234,13 +212,7 @@
         </template>
         <template v-else>
           <div class="field-edit-row">
-            <input
-              v-model="newFieldIcon"
-              class="icon-input-sm"
-              placeholder="图标"
-              @keydown.enter="addField"
-              @keydown.escape="showNewField = false"
-            />
+            <IconPicker v-model="newFieldIcon" />
             <input
               v-model="newFieldName"
               class="name-input"
@@ -291,6 +263,7 @@ import { ref, computed } from 'vue'
 import { useTypeStore } from '@/stores/types'
 import { useToast } from '@/composables/toast'
 import TablerIcon from './TablerIcon.vue'
+import IconPicker from './IconPicker.vue'
 import type { ItemType, Field } from '@/types/bindings'
 
 const typeStore = useTypeStore()
