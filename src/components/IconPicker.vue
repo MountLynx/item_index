@@ -41,7 +41,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue'
-import { ICON_NAMES } from './TablerIcon.vue'
+import { ICON_NAMES } from '@/assets/icon-names'
 import TablerIcon from './TablerIcon.vue'
 
 defineProps<{ modelValue: string }>()
