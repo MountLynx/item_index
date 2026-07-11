@@ -7,9 +7,10 @@
     </div>
     <div v-else class="list">
       <div v-for="item in items" :key="item.id" class="row" :class="{ sel: item.id === selectedId }"
-        draggable="true"
-        @click="selectItem(item.id)" @contextmenu.prevent="showMenu($event, item)"
-        @dragstart="onDragStart($event, item.id)">
+        @click="selectItem(item.id)" @contextmenu.prevent="showMenu($event, item)">
+        <span class="grip" draggable="true" @dragstart="onDragStart($event, item.id)" @click.stop title="拖拽到分组">
+          <TablerIcon name="grip-vertical" :size="14" />
+        </span>
         <TablerIcon :name="typeIcon(item.type_id)" :size="19" />
         <div class="body">
           <span class="name">{{ item.name }}</span>
@@ -52,7 +53,11 @@ function ago(iso: string): string {
   return `${Math.floor(d / 30)} 月前`
 }
 
-function onDragStart(e: DragEvent, id: string) { e.dataTransfer!.setData('text/plain', id); e.dataTransfer!.effectAllowed = 'move' }
+function onDragStart(e: DragEvent, id: string) {
+  e.dataTransfer!.setData('text/plain', id)
+  e.dataTransfer!.effectAllowed = 'move'
+}
+
 async function selectItem(id: string) { await itemStore.select(id); menu.show = false }
 function showMenu(e: MouseEvent, item: Item) { menu.show = true; menu.x = e.clientX; menu.y = e.clientY; menu.item = item }
 async function deleteItem() { if (menu.item && confirm(`确定删除"${menu.item.name}"？`)) await itemStore.remove(menu.item.id); menu.show = false }
@@ -65,13 +70,17 @@ async function deleteItem() { if (menu.item && confirm(`确定删除"${menu.item
 .empty-text { font-size: var(--fs-base); }
 .list { padding: 4px 0; }
 .row {
-  display: flex; align-items: center; gap: 12px;
-  padding: 8px 16px; margin: 1px 8px; border-radius: var(--r-md);
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px 8px 8px; margin: 1px 8px; border-radius: var(--r-md);
   cursor: pointer; user-select: none; transition: background var(--fast) var(--ease);
 }
 .row:hover { background: var(--surface-hover); }
+.row:hover .grip { opacity: 1; }
 .row.sel { background: var(--accent); color: var(--accent-fg); }
 .row.sel .meta { color: rgba(255,255,255,0.65); }
+.grip { opacity: 0; cursor: grab; flex-shrink: 0; display: flex; align-items: center; transition: opacity var(--fast) var(--ease); color: var(--text-muted); }
+.grip:active { cursor: grabbing; }
+.row.sel .grip { color: var(--accent-fg); opacity: 0.8; }
 .body { display: flex; flex-direction: column; min-width: 0; gap: 1px; }
 .name { font-weight: var(--fw-medium); font-size: var(--fs-base); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .meta { font-size: var(--fs-xs); color: var(--text-secondary); }

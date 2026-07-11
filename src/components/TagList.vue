@@ -1,7 +1,7 @@
 <template>
   <div>
     <div class="tags">
-      <span v-for="tag in tagStore.tags" :key="tag.id" class="tag" :class="{ active: tag.id === sel }" @click="toggle(tag.id)">
+      <span v-for="tag in tagStore.tags" :key="tag.id" class="tag" :class="{ active: tag.id === selectedId }" @click="toggle(tag.id)">
         <TablerIcon name="hash" :size="12" />{{ tag.name }}
       </span>
     </div>
@@ -14,12 +14,13 @@ import { ref } from 'vue'
 import { useTagStore } from '@/stores/tags'
 import TablerIcon from './TablerIcon.vue'
 
-const tagStore = useTagStore()
-const sel = ref<number | null>(null)
-const name = ref('')
+const props = defineProps<{ selectedId: number | null }>()
 const emit = defineEmits<{ select: [id: number | null] }>()
 
-function toggle(id: number) { sel.value = sel.value === id ? null : id; emit('select', sel.value) }
+const tagStore = useTagStore()
+const name = ref('')
+
+function toggle(id: number) { emit('select', props.selectedId === id ? null : id) }
 async function add() { const n = name.value.trim(); if (n) { await tagStore.create(n); name.value = '' } }
 </script>
 

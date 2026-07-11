@@ -11,6 +11,7 @@ import {
   IconClipboard, IconTrash, IconFile, IconFileText, IconPhoto,
   IconBook, IconMusic, IconVideo, IconFileZip,
   IconPaperclip, IconArrowLeft, IconCheckbox, IconCircle, IconCheck, IconX,
+  IconGripVertical,
 } from '@tabler/icons-vue'
 
 const map: Record<string, any> = {
@@ -22,6 +23,7 @@ const map: Record<string, any> = {
   'music': IconMusic, 'video': IconVideo, 'file-zip': IconFileZip,
   'paperclip': IconPaperclip, 'arrow-left': IconArrowLeft,
   'checkbox': IconCheckbox, 'circle': IconCircle, 'check': IconCheck, 'x': IconX,
+  'grip-vertical': IconGripVertical,
 }
 
 const props = withDefaults(defineProps<{
