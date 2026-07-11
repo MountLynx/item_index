@@ -7,7 +7,9 @@
     </div>
     <div v-else class="list">
       <div v-for="item in items" :key="item.id" class="row" :class="{ sel: item.id === selectedId }"
-        @click="selectItem(item.id)" @contextmenu.prevent="showMenu($event, item)">
+        draggable="true"
+        @click="selectItem(item.id)" @contextmenu.prevent="showMenu($event, item)"
+        @dragstart="onDragStart($event, item.id)">
         <TablerIcon :name="typeIcon(item.type_id)" :size="19" />
         <div class="body">
           <span class="name">{{ item.name }}</span>
@@ -50,6 +52,7 @@ function ago(iso: string): string {
   return `${Math.floor(d / 30)} 月前`
 }
 
+function onDragStart(e: DragEvent, id: string) { e.dataTransfer!.setData('text/plain', id); e.dataTransfer!.effectAllowed = 'move' }
 async function selectItem(id: string) { await itemStore.select(id); menu.show = false }
 function showMenu(e: MouseEvent, item: Item) { menu.show = true; menu.x = e.clientX; menu.y = e.clientY; menu.item = item }
 async function deleteItem() { if (menu.item && confirm(`确定删除"${menu.item.name}"？`)) await itemStore.remove(menu.item.id); menu.show = false }
