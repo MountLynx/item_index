@@ -7,17 +7,17 @@
 
     <Teleport to="body">
       <div v-if="open" class="pick-drop" :style="dropStyle" @click.stop>
-        <!-- Search -->
         <input
           ref="searchEl"
+          id="icon-picker-search"
+          name="icon-search"
           v-model="search"
           class="pick-search"
           placeholder="搜索图标…"
           @keydown.escape="open = false"
         />
 
-        <!-- Category tabs (hidden when searching) -->
-        <div v-if="!search" class="pick-tabs">
+        <div v-if="!search && groups.length" class="pick-tabs">
           <button
             v-for="g in groups"
             :key="g.prefix"
@@ -27,7 +27,6 @@
           >{{ g.label }}</button>
         </div>
 
-        <!-- Icon grid -->
         <div class="pick-grid" ref="gridEl" @scroll="onScroll">
           <div :style="{ height: totalHeight + 'px', position: 'relative' }">
             <div :style="{ transform: `translateY(${offsetY}px)` }">
@@ -50,6 +49,9 @@
         <div v-if="search && !filtered.length" class="pick-empty">
           无匹配，可输入 emoji 直接使用
         </div>
+        <div v-if="!search && !groups.length" class="pick-empty">
+          加载中…
+        </div>
       </div>
     </Teleport>
   </div>
@@ -58,7 +60,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, shallowRef } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 import type { IconGroup } from '@/assets/icon-names'
 import TablerIcon from './TablerIcon.vue'
 
@@ -72,37 +74,41 @@ const searchEl = ref<HTMLInputElement | null>(null)
 const gridEl = ref<HTMLElement | null>(null)
 const dropStyle = ref<Record<string, string>>({})
 
-// Lazy-load icon data
-const groups = shallowRef<IconGroup[]>([])
+const groups = ref<IconGroup[]>([])
 const activeGroup = ref('_base')
 const scrollTop = ref(0)
+const loadErr = ref('')
 
 const COLS = 6
 const ROW_H = 32
-const VISIBLE_ROWS = 9 // ~288px visible
+const VISIBLE_ROWS = 9
 const BUFFER = 3
 
 async function loadIcons() {
   if (groups.value.length) return
-  const mod = await import('@/assets/icon-names')
-  groups.value = mod.ICON_GROUPS
+  try {
+    const mod = await import('@/assets/icon-names')
+    groups.value = mod.ICON_GROUPS
+  } catch (e) {
+    loadErr.value = String(e)
+    console.error('Failed to load icon names:', e)
+  }
 }
 
-// Current visible icons
 const currentIcons = computed(() => {
-  if (search.value.trim()) return []
+  if (!groups.value.length) return []
   const g = groups.value.find(g => g.prefix === activeGroup.value)
-  return g ? g.icons : []
+  return g ? g.icons : groups.value[0]?.icons ?? []
 })
 
 const filtered = computed(() => {
   const q = search.value.trim().toLowerCase()
-  if (!q) return []
+  if (!q) return [] as string[]
   const all: string[] = []
   for (const g of groups.value) {
     for (const n of g.icons) {
       if (n.includes(q)) all.push(n)
-      if (all.length >= 200) break // cap search results
+      if (all.length >= 200) break
     }
     if (all.length >= 200) break
   }
@@ -110,9 +116,10 @@ const filtered = computed(() => {
 })
 
 const visibleRows = computed(() => {
-  const list = search.value.trim() ? filtered.value : currentIcons.value
-  if (list.length <= COLS * (VISIBLE_ROWS + BUFFER * 2)) {
-    // Small list: render all rows
+  const list: string[] = search.value.trim() ? filtered.value : currentIcons.value
+  if (!list.length) return []
+  const total = Math.min(list.length, COLS * (VISIBLE_ROWS + BUFFER * 2))
+  if (list.length <= total) {
     const rows: string[][] = []
     for (let i = 0; i < list.length; i += COLS) rows.push(list.slice(i, i + COLS))
     return rows
@@ -129,12 +136,12 @@ const visibleRows = computed(() => {
 })
 
 const totalHeight = computed(() => {
-  const list = search.value.trim() ? filtered.value : currentIcons.value
-  return Math.ceil(list.length / COLS) * ROW_H
+  const list: string[] = search.value.trim() ? filtered.value : currentIcons.value
+  return Math.max(1, Math.ceil(list.length / COLS)) * ROW_H
 })
 
 const offsetY = computed(() => {
-  const list = search.value.trim() ? filtered.value : currentIcons.value
+  const list: string[] = search.value.trim() ? filtered.value : currentIcons.value
   if (list.length <= COLS * (VISIBLE_ROWS + BUFFER * 2)) return 0
   const startRow = Math.max(0, Math.floor(scrollTop.value / ROW_H) - BUFFER)
   return startRow * ROW_H
@@ -173,7 +180,6 @@ watch(open, (v) => {
   if (!v) { search.value = ''; scrollTop.value = 0 }
 })
 
-// Reset scroll on group change or search
 watch([activeGroup, search], () => { scrollTop.value = 0 })
 </script>
 
@@ -213,9 +219,8 @@ watch([activeGroup, search], () => { scrollTop.value = 0 })
   display: flex; gap: 2px; padding: 4px 6px;
   overflow-x: auto; flex-shrink: 0;
   border-bottom: 1px solid var(--border-light);
-  scrollbar-width: none;
 }
-.pick-tabs::-webkit-scrollbar { display: none; }
+.pick-tabs::-webkit-scrollbar { height: 0; }
 .tab {
   font-size: 11px; padding: 2px 8px; height: 22px;
   border: 1px solid transparent; border-radius: var(--r-full);
