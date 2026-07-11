@@ -1,4 +1,4 @@
-# Vault Phase 1 Implementation Plan
+# Index Phase 1 Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task.
 
@@ -17,7 +17,7 @@
 - Item creation auto-generates `<name>.md` with content `# <name>\n`.
 - Properties auto-save on blur, 500ms debounce. No save button.
 - Double-click file → `open::that()` system default program.
-- Theme persisted to `.vault/state.json`. Timestamps: ISO 8601.
+- Theme persisted to `.index/state.json`. Timestamps: ISO 8601.
 
 ---
 
@@ -35,12 +35,12 @@
 
 - [ ] **Step 1: Create all scaffold files**
 
-Write every file. `App.vue` renders `<div>Vault</div>`. `lib.rs` exposes one `greet` command. `tauri.conf.json` sets window 1200x800 min 900x600, identifier com.vault.app, frontendDist ../dist, devUrl localhost:1420.
+Write every file. `App.vue` renders `<div>Index</div>`. `lib.rs` exposes one `greet` command. `tauri.conf.json` sets window 1200x800 min 900x600, identifier com.index.app, frontendDist ../dist, devUrl localhost:1420.
 
 - [ ] **Step 2: Install & verify**
 
 Run: `pnpm install && cd src-tauri && cargo check`
-Expected: both pass. Then: `pnpm tauri dev` → window opens with "Vault". Close.
+Expected: both pass. Then: `pnpm tauri dev` → window opens with "Index". Close.
 
 - [ ] **Step 3: Commit**
 
@@ -106,8 +106,8 @@ git commit -m "feat: scaffold Tauri 2 + Vue 3 + pnpm + Cargo monorepo"
 **repo.rs helper:** `fn get_pool(state) -> Result<SqlitePool, String>` — `state.db.lock().unwrap().clone().ok_or("No repo open")`.
 
 **Commands:**
-- `create_repo(path)`: mkdir `.vault/`, create pool, run migrations, write `state.json={"theme":"light"}`, set state, return RepoInfo
-- `open_repo(path)`: verify `.vault/` exists, create pool, run migrations, set state, return RepoInfo
+- `create_repo(path)`: mkdir `.index/`, create pool, run migrations, write `state.json={"theme":"light"}`, set state, return RepoInfo
+- `open_repo(path)`: verify `.index/` exists, create pool, run migrations, set state, return RepoInfo
 - `close_repo()`: take then close pool, clear path
 - `get_repo_info()`: COUNT items, return RepoInfo
 
@@ -363,7 +363,7 @@ Positioned bottom-right. Renders toast array from composable. Color-coded: succe
 When user clicks group in GroupTree → `selectedGroupId` ref. When user clicks tag in TagList → `selectedTagId` ref. When either changes → `itemStore.fetchList(selectedGroupId, selectedTagId)`. Both can be selected simultaneously (AND filter — items in that group AND with that tag). Click again to deselect (set to null). "Clear filter" when no items match.
 
 **Theme persistence:**
-On app mount → `themeStore.load()` reads `.vault/state.json` via custom invoke or Tauri path API. On toggle → `themeStore.toggle()` → `persist()` writes state.json. Apply CSS class `dark` to `document.documentElement`.
+On app mount → `themeStore.load()` reads `.index/state.json` via custom invoke or Tauri path API. On toggle → `themeStore.toggle()` → `persist()` writes state.json. Apply CSS class `dark` to `document.documentElement`.
 
 **Error handling:**
 Wrap all `invoke()` calls in try-catch. On error → `toast.error(message)`. DB-locked errors show "数据库忙碌，重试中...". File operation errors show specific messages.
@@ -384,7 +384,7 @@ Wrap all `invoke()` calls in try-catch. On error → `toast.error(message)`. DB-
 
 **Tests use tempdir for each test case:**
 
-1. `test_create_and_open_repo`: create temp dir → invoke create_repo logic → verify `.vault/vault.db` exists → verify `.vault/state.json` exists
+1. `test_create_and_open_repo`: create temp dir → invoke create_repo logic → verify `.index/index.db` exists → verify `.index/state.json` exists
 2. `test_create_item`: open repo → create item → verify folder exists → verify `<name>.md` exists with correct content → verify DB row matches
 3. `test_item_crud`: create → read (get_item returns ItemDetail with files) → update name → verify updated → delete → verify folder gone + DB row gone
 4. `test_group_tree`: create root group → create child group → verify tree structure → delete parent → verify CASCADE removes child
@@ -502,7 +502,7 @@ Smoke test flow:
 **Steps:**
 1. Generate icons (PNG 32x32, 128x128, 256x256, ICO) — use placeholder or simple tool
 2. Configure `tauri.conf.json` bundle section:
-   - identifier: `com.vault.app`
+   - identifier: `com.index.app`
    - windows: NSIS installer
    - NSIS: install mode currentUser, license file path (LICENSE)
 3. Run `pnpm tauri build` → produces `.msi` and `.nsis.exe` installers

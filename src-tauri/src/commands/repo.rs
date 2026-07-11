@@ -34,11 +34,11 @@ pub async fn create_repo(
             .map_err(|e| format!("Cannot create directory: {}", e))?;
     }
 
-    let vault_dir = repo_path.join(".vault");
-    std::fs::create_dir_all(&vault_dir)
-        .map_err(|e| format!("Cannot create .vault: {}", e))?;
+    let index_dir = repo_path.join(".index");
+    std::fs::create_dir_all(&index_dir)
+        .map_err(|e| format!("Cannot create .index: {}", e))?;
 
-    let db_path = vault_dir.join("vault.db");
+    let db_path = index_dir.join("index.db");
     let pool = db::create_pool(&db_path)
         .await
         .map_err(|e| format!("DB error: {}", e))?;
@@ -47,7 +47,7 @@ pub async fn create_repo(
         .map_err(|e| format!("Migration error: {}", e))?;
 
     // Write initial state.json
-    let state_json = vault_dir.join("state.json");
+    let state_json = index_dir.join("state.json");
     std::fs::write(&state_json, r#"{"theme":"light"}"#)
         .map_err(|e| format!("Write error: {}", e))?;
 
@@ -72,13 +72,13 @@ pub async fn open_repo(
     path: String,
 ) -> Result<RepoInfo, String> {
     let repo_path = Path::new(&path);
-    let vault_dir = repo_path.join(".vault");
+    let index_dir = repo_path.join(".index");
 
-    if !vault_dir.exists() {
-        return Err("Not a valid Vault repository (no .vault directory)".to_string());
+    if !index_dir.exists() {
+        return Err("Not a valid Index repository (no .index directory)".to_string());
     }
 
-    let db_path = vault_dir.join("vault.db");
+    let db_path = index_dir.join("index.db");
     let pool = db::create_pool(&db_path)
         .await
         .map_err(|e| format!("DB error: {}", e))?;

@@ -1,10 +1,10 @@
-# Vault Phase 1 Design Spec
+# Index Phase 1 Design Spec
 
 | Field | Value |
 |---|---|
 | **Status** | Draft |
 | **Date** | 2026-07-10 |
-| **Project code name** | Vault (placeholder) |
+| **Project code name** | Index (placeholder) |
 | **Scope** | Phase 1 — local-first object/project manager |
 | **Platform** | Windows only |
 | **Quality bar** | Open-source product (polished UX, complete docs) |
@@ -231,8 +231,8 @@ pub struct FileNode {
 
 ```
 ~/Documents/MyRepo/                    ← user-selected root
-├── .vault/                            ← app metadata (hidden)
-│   ├── vault.db
+├── .index/                            ← app metadata (hidden)
+│   ├── index.db
 │   └── state.json                    ← theme preference
 ├── a3f2c1b8e9d4/                     ← item "鲁迅"
 │   ├── 鲁迅.md                        ← auto-created on item creation
@@ -314,7 +314,7 @@ pub struct FileNode {
 
 - **Light**: bg `#FFFFFF` / text `#111111` / accent `#2563EB`
 - **Dark**: bg `#0A0A0A` / text `#E5E5E5` / accent `#60A5FA`
-- CSS variables driven, persisted to `.vault/state.json`
+- CSS variables driven, persisted to `.index/state.json`
 
 ### 6.4 Empty & Error States
 

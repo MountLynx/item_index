@@ -9,7 +9,7 @@ use tauri::Manager;
 
 #[tauri::command]
 fn greet(name: &str) -> String {
-    format!("Hello, {}! Welcome to Vault.", name)
+    format!("Hello, {}! Welcome to Index.", name)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

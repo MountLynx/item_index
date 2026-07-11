@@ -2,13 +2,14 @@
   <div>
     <div class="row" :class="{ sel: group.id === selectedId, over: dragOver }"
       :style="{ paddingLeft: depth * 18 + 8 + 'px' }"
-      @dragover.prevent="onDragOver" @dragleave="dragOver = false"
-      @drop.prevent="onDrop" @contextmenu.prevent="showCtx">
-      <span class="arr" :class="{ open: expanded }" @click="expanded = !expanded">
+      @click="selectGroup" @contextmenu.prevent="showCtx"
+      @dragenter.prevent="onDragEnter" @dragover.prevent="onDragOver"
+      @dragleave.prevent="onDragLeave" @drop.prevent="onDrop">
+      <span class="arr" :class="{ open: expanded }" @click.stop="expanded = !expanded">
         <TablerIcon v-if="group.children.length" name="chevron-right" :size="12" />
       </span>
       <TablerIcon :name="expanded ? 'folder-open' : 'folder'" :size="15" />
-      <span class="name" @click="selectGroup">{{ group.name }}</span>
+      <span class="name">{{ group.name }}</span>
     </div>
     <div v-if="expanded">
       <GroupTreeNode v-for="child in group.children" :key="child.id" :group="child" :depth="depth + 1" :selected-id="selectedId" @select="onSelect" />
@@ -31,6 +32,7 @@
 <script setup lang="ts">
 import { ref, reactive, nextTick } from 'vue'
 import { useGroupStore } from '@/stores/groups'
+import { useToast } from '@/composables/toast'
 import type { Group } from '@/types/bindings'
 import TablerIcon from './TablerIcon.vue'
 
@@ -38,7 +40,9 @@ const props = defineProps<{ group: Group; depth: number; selectedId: number | nu
 const emit = defineEmits<{ select: [id: number | null] }>()
 
 const groupStore = useGroupStore()
+const toast = useToast()
 const expanded = ref(true)
+const dragCounter = ref(0)
 const dragOver = ref(false)
 const adding = ref(false)
 const addName = ref('')
@@ -48,13 +52,30 @@ const ctx = reactive({ show: false, x: 0, y: 0 })
 function selectGroup() { emit('select', props.selectedId === props.group.id ? null : props.group.id) }
 function onSelect(id: number | null) { emit('select', id) }
 
-function onDragOver(e: DragEvent) {
-  if (e.dataTransfer?.types.includes('text/plain')) { dragOver.value = true; e.dataTransfer!.dropEffect = 'move' }
+// ── Drop target handlers — Vue template `.prevent` modifier handles preventDefault ──
+
+function onDragEnter(_e: DragEvent) {
+  dragCounter.value++
+  dragOver.value = true
 }
+
+function onDragOver(e: DragEvent) {
+  e.dataTransfer!.dropEffect = 'move'
+}
+
+function onDragLeave(_e: DragEvent) {
+  dragCounter.value--
+  if (dragCounter.value <= 0) { dragCounter.value = 0; dragOver.value = false }
+}
+
 async function onDrop(e: DragEvent) {
+  dragCounter.value = 0
   dragOver.value = false
   const itemId = e.dataTransfer?.getData('text/plain')
-  if (itemId) await groupStore.addItemToGroup(itemId, props.group.id)
+  if (itemId) {
+    await groupStore.addItemToGroup(itemId, props.group.id)
+    toast.success(`已添加到分组"${props.group.name}"`)
+  }
 }
 
 function showCtx(e: MouseEvent) { ctx.show = true; ctx.x = e.clientX; ctx.y = e.clientY }

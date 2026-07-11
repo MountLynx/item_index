@@ -2,7 +2,7 @@
   <header class="topbar">
     <div class="left">
       <TablerIcon name="database" :size="22" :stroke="1.5" />
-      <span class="repo-name">{{ repoStore.repoPath ? basename(repoStore.repoPath) : 'Vault' }}</span>
+      <span class="repo-name">{{ repoStore.repoPath ? basename(repoStore.repoPath) : 'Index' }}</span>
     </div>
     <div class="actions">
       <button class="primary" @click="$emit('newItem')">

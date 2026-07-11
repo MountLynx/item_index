@@ -8,7 +8,7 @@
     <div v-else-if="!itemId" class="status text-muted">选择条目查看附件</div>
     <div v-else-if="files" class="tree" :class="{ over: dragOver }"
       @dragover.prevent @drop.prevent="onDrop"
-      @dragenter.prevent="dragOver = true" @dragleave.prevent="dragOver = false">
+      @dragenter.prevent="onDragEnter" @dragleave.prevent="onDragLeave">
       <FileTreeNode v-for="child in files.children" :key="child.name" :node="child" :depth="0" :item-id="itemId!" @refresh="refresh" />
       <div v-if="files.children.length === 0" class="status text-muted">拖入文件</div>
     </div>
@@ -26,6 +26,7 @@ const props = defineProps<{ itemId: string | null }>()
 const files = ref<FileNode | null>(null)
 const loading = ref(false)
 const dragOver = ref(false)
+const dragCounter = ref(0)
 let last: string | null = null
 
 function count(n: FileNode | null): number { if (!n) return 0; let x = n.is_dir ? 0 : 1; for (const c of n.children) x += count(c); return x }
@@ -39,8 +40,11 @@ async function refresh() {
 }
 watch(() => props.itemId, refresh, { immediate: true })
 
+function onDragEnter() { dragCounter.value++; dragOver.value = true }
+function onDragLeave() { dragCounter.value--; if (dragCounter.value <= 0) { dragCounter.value = 0; dragOver.value = false } }
 async function onDrop(e: DragEvent) {
-  dragOver.value = false; if (!props.itemId) return
+  dragCounter.value = 0; dragOver.value = false
+  if (!props.itemId) return
   const f = e.dataTransfer?.files?.[0]; if (f) {
     // @ts-ignore
     const p = f.path; if (p) { await invoke('add_attachment', { itemId: props.itemId, sourcePath: p }); await refresh() }

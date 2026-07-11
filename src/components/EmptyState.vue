@@ -2,14 +2,14 @@
   <div class="welcome">
     <div class="card">
       <TablerIcon name="database" :size="40" :stroke="1.5" class="logo" />
-      <h1>Vault</h1>
+      <h1>Index</h1>
       <p>本地优先的对象管理器</p>
       <div class="btns">
         <button class="primary" @click="openRepo"><TablerIcon name="folder-open" :size="17" /> 打开仓库</button>
         <button @click="showCreate = !showCreate"><TablerIcon name="plus" :size="17" /> 创建仓库</button>
       </div>
       <div v-if="showCreate" class="create">
-        <input v-model="path" placeholder="仓库路径，如 C:\Users\me\MyVault" @keydown.enter="doCreate" />
+        <input v-model="path" placeholder="仓库路径，如 C:\Users\me\MyIndex" @keydown.enter="doCreate" />
         <div class="create-btns">
           <button class="ghost" @click="showCreate = false">取消</button>
           <button class="primary" @click="doCreate">创建</button>

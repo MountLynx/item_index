@@ -2,8 +2,8 @@
   <div>
     <div class="row" :style="{ paddingLeft: depth * 18 + 8 + 'px' }" :class="{ hover: dragHover }"
       @click="onClick" @dblclick="onDblClick"
-      @dragover.prevent @drop.prevent="onDrop"
-      @dragenter.prevent="dragHover = true" @dragleave="dragHover = false"
+      @dragenter.prevent="onDragEnter" @dragover.prevent
+      @dragleave.prevent="onDragLeave" @drop.prevent="onDrop"
       @contextmenu.prevent="ctx">
       <TablerIcon :name="node.is_dir ? (expanded ? 'folder-open' : 'folder') : iconFor(node.name)" :size="15" />
       <span v-if="editing" class="nm"><input ref="eRef" v-model="editName" @keydown.enter="doRename" @keydown.escape="editing = false" @blur="doRename" /></span>
@@ -26,6 +26,7 @@ const emit = defineEmits<{ refresh: [] }>()
 
 const expanded = ref(false)
 const dragHover = ref(false)
+const dragCounter = ref(0)
 const editing = ref(false)
 const editName = ref('')
 const eRef = ref<HTMLInputElement | null>(null)
@@ -35,8 +36,12 @@ function iconFor(n: string) { return extMap[n.split('.').pop()?.toLowerCase() ||
 
 function onClick() { if (props.node.is_dir) expanded.value = !expanded.value }
 async function onDblClick() { if (!props.node.is_dir) await invoke('open_file', { itemId: props.itemId, relPath: props.node.name }) }
+
+function onDragEnter() { dragCounter.value++; dragHover.value = true }
+function onDragLeave() { dragCounter.value--; if (dragCounter.value <= 0) { dragCounter.value = 0; dragHover.value = false } }
 async function onDrop(e: DragEvent) {
-  dragHover.value = false
+  e.stopPropagation() // prevent FileTree.onDrop from firing (double copy)
+  dragCounter.value = 0; dragHover.value = false
   const f = e.dataTransfer?.files?.[0]; if (f) {
     // @ts-ignore
     const p = f.path; if (p) { await invoke('add_attachment', { itemId: props.itemId, sourcePath: p }); emit('refresh') }

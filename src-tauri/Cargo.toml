@@ -1,12 +1,12 @@
 [package]
-name = "vault"
+name = "index"
 version = "0.1.0"
-description = "Vault — a local-first object/project manager"
+description = "Index — a local-first object/project manager"
 authors = ["you"]
 edition = "2021"
 
 [lib]
-name = "vault_lib"
+name = "index_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

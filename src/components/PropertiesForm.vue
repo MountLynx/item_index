@@ -1,7 +1,7 @@
 <template>
   <div class="properties-form" v-if="detail">
     <div class="field" v-for="field in detail.item_type.fields" :key="field.id">
-      <label class="field-label">{{ field.name }}</label>
+      <label class="field-label"><TablerIcon :name="field.icon" :size="14" /> {{ field.name }}</label>
       <div v-if="field.field_type === 'text'" class="field-input-wrap">
         <input :value="getValue(field.name)" @input="setValue(field.name, ($event.target as HTMLInputElement).value)" @blur="save" :placeholder="field.name" />
       </div>
@@ -17,6 +17,7 @@
 <script setup lang="ts">
 import { useItemStore } from '@/stores/items'
 import type { ItemDetail } from '@/types/bindings'
+import TablerIcon from './TablerIcon.vue'
 
 const props = defineProps<{ detail: ItemDetail }>()
 const itemStore = useItemStore()
