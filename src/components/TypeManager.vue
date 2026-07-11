@@ -505,19 +505,20 @@ async function onDrop(_e: DragEvent, _fieldId: number) {
   const toIdx = fields.findIndex(f => f.id === dragOverId.value)
   if (fromIdx === -1 || toIdx === -1 || fromIdx === toIdx) return
 
-  // Reorder locally
   const [moved] = fields.splice(fromIdx, 1)
   fields.splice(toIdx, 0, moved)
-  // Reflect in store immediately
-  currentType.value.fields = fields
+  const reordered = fields
 
   try {
     await typeStore.reorderFields(
       currentType.value.id,
-      fields.map(f => f.id)
+      reordered.map(f => f.id)
     )
+    // Apply to store only after server confirms
+    currentType.value.fields = reordered
   } catch (e) {
     toast.error('排序失败: ' + e)
+    // Local state unchanged — order snaps back
   }
   dragId.value = null
   dragOverId.value = null
