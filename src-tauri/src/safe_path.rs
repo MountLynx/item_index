@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 /// Resolve a path inside repo/<item_id>/<rel_path>, preventing traversal attacks.
 pub fn safe_path(repo_root: &Path, item_id: &str, rel_path: &str) -> Result<PathBuf, String> {
@@ -35,6 +35,20 @@ pub fn safe_path(repo_root: &Path, item_id: &str, rel_path: &str) -> Result<Path
         base
     };
 
+    // Normalize .. and . components to prevent lexical bypass of starts_with
+    let resolved = resolved.components().fold(PathBuf::new(), |mut acc, c| {
+        match c {
+            Component::ParentDir => {
+                acc.pop();
+            }
+            Component::CurDir => {}
+            other => {
+                acc.push(other.as_os_str());
+            }
+        }
+        acc
+    });
+
     if !resolved.starts_with(&repo_root) {
         return Err("Path traversal detected".to_string());
     }
@@ -61,6 +75,24 @@ mod tests {
         let result = safe_path(repo_root, "item001", "file.txt");
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), file_path.canonicalize().unwrap());
+    }
+
+    #[test]
+    fn test_traversal_nonexistent_with_dotdot() {
+        let dir = tempdir().unwrap();
+        let repo_root = dir.path();
+
+        // Create item directory but no file — triggers the nonexistent-path else branch
+        let item_dir = repo_root.join("a3f2c1b8e9d4");
+        fs::create_dir(&item_dir).unwrap();
+
+        // rel_path with .. that would escape if not normalized
+        let result = safe_path(repo_root, "a3f2c1b8e9d4", "../../etc/passwd");
+        assert!(result.is_err());
+        assert!(
+            result.unwrap_err().to_lowercase().contains("traversal"),
+            "expected traversal error"
+        );
     }
 
     #[test]
