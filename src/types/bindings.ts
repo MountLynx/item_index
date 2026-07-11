@@ -10,7 +10,9 @@ export interface Field {
   type_id: number
   name: string
   field_type: 'text' | 'checkbox'
+  icon: string
   position: number
+  label: string
 }
 
 export interface Item {

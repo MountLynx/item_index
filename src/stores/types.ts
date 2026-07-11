@@ -29,8 +29,15 @@ export const useTypeStore = defineStore('types', () => {
     types.value = types.value.filter(t => t.id !== id)
   }
 
-  async function addField(typeId: number, name: string, fieldType: string): Promise<Field> {
-    const f = await invoke<Field>('add_field', { typeId, name, fieldType })
+  async function update(id: number, name: string, icon: string): Promise<ItemType> {
+    const t = await invoke<ItemType>('update_item_type', { id, name, icon })
+    const idx = types.value.findIndex(t => t.id === id)
+    if (idx !== -1) types.value[idx] = t
+    return t
+  }
+
+  async function addField(typeId: number, name: string, fieldType: string, icon?: string, label?: string): Promise<Field> {
+    const f = await invoke<Field>('add_field', { typeId, name, fieldType, icon: icon ?? null, label: label ?? null })
     const t = types.value.find(t => t.id === typeId)
     if (t) t.fields.push(f)
     return f
@@ -43,6 +50,18 @@ export const useTypeStore = defineStore('types', () => {
     }
   }
 
+  async function updateField(id: number, name: string, fieldType: string, icon: string, label: string): Promise<Field> {
+    const f = await invoke<Field>('update_field', { id, name, fieldType, icon, label })
+    for (const t of types.value) {
+      const idx = t.fields.findIndex(fi => fi.id === id)
+      if (idx !== -1) {
+        t.fields[idx] = f
+        break
+      }
+    }
+    return f
+  }
+
   async function reorderFields(typeId: number, fieldIds: number[]): Promise<void> {
     await invoke('reorder_fields', { typeId, fieldIds })
     const t = types.value.find(t => t.id === typeId)
@@ -51,5 +70,5 @@ export const useTypeStore = defineStore('types', () => {
     }
   }
 
-  return { types, loading, getTypeById, fetchAll, create, remove, addField, removeField, reorderFields }
+  return { types, loading, getTypeById, fetchAll, create, remove, addField, removeField, reorderFields, update, updateField }
 })
