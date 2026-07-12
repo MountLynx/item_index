@@ -17,16 +17,6 @@
           @keydown.escape="open = false"
         />
 
-        <div v-if="!search && groups.length" class="pick-tabs">
-          <button
-            v-for="g in groups"
-            :key="g.prefix"
-            class="tab"
-            :class="{ sel: activeGroup === g.prefix }"
-            @click="activeGroup = g.prefix"
-          >{{ g.label }}</button>
-        </div>
-
         <div class="pick-grid" ref="gridEl" @scroll="onScroll">
           <div :style="{ height: totalHeight + 'px', position: 'relative' }">
             <div :style="{ transform: `translateY(${offsetY}px)` }">
@@ -46,11 +36,15 @@
           </div>
         </div>
 
-        <div v-if="search && !filtered.length" class="pick-empty">
-          无匹配，可输入 emoji 直接使用
-        </div>
-        <div v-if="!search && !groups.length" class="pick-empty">
+        <div v-if="search && !loadErr && !iconNames.length" class="pick-empty">
           加载中…
+        </div>
+        <div v-if="search && loadErr" class="pick-empty pick-err">
+          ⚠ 图标加载失败
+          <button class="retry-btn" @click="retry">重试</button>
+        </div>
+        <div v-if="search && !loadErr && iconNames.length && !results.length" class="pick-empty">
+          无匹配，可输入 emoji 直接使用
         </div>
       </div>
     </Teleport>
@@ -61,11 +55,21 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue'
-import type { IconGroup } from '@/assets/icon-names'
 import TablerIcon from './TablerIcon.vue'
 
 defineProps<{ modelValue: string }>()
 const emit = defineEmits<{ 'update:modelValue': [v: string] }>()
+
+const COMMON: string[] = [
+  'circle', 'file', 'folder', 'star', 'heart', 'check', 'x',
+  'plus', 'minus', 'search', 'settings', 'user', 'users', 'calendar',
+  'clock', 'bell', 'mail', 'message', 'photo', 'camera', 'music',
+  'video', 'map', 'lock', 'key', 'trash', 'edit', 'pencil',
+  'book', 'bookmark', 'tag', 'flag', 'link', 'globe', 'home',
+  'phone', 'download', 'upload', 'share', 'filter', 'copy',
+  'database', 'code', 'chart-bar', 'list', 'info-circle',
+  'alert-circle', 'help-circle', 'rocket', 'package',
+]
 
 const open = ref(false)
 const search = ref('')
@@ -74,8 +78,7 @@ const searchEl = ref<HTMLInputElement | null>(null)
 const gridEl = ref<HTMLElement | null>(null)
 const dropStyle = ref<Record<string, string>>({})
 
-const groups = ref<IconGroup[]>([])
-const activeGroup = ref('_base')
+const iconNames = ref<string[]>([])
 const scrollTop = ref(0)
 const loadErr = ref('')
 
@@ -83,40 +86,52 @@ const COLS = 6
 const ROW_H = 32
 const VISIBLE_ROWS = 9
 const BUFFER = 3
+const MAX_RESULTS = 200
 
 async function loadIcons() {
-  if (groups.value.length) return
+  if (iconNames.value.length) return
   try {
     const mod = await import('@/assets/icon-names')
-    groups.value = mod.ICON_GROUPS
+    const seen = new Set<string>()
+    const flat: string[] = []
+    for (const g of mod.ICON_GROUPS) {
+      for (const n of g.icons) {
+        if (!seen.has(n)) {
+          seen.add(n)
+          flat.push(n)
+        }
+      }
+    }
+    iconNames.value = flat
   } catch (e) {
     loadErr.value = String(e)
     console.error('Failed to load icon names:', e)
   }
 }
 
-const currentIcons = computed(() => {
-  if (!groups.value.length) return []
-  const g = groups.value.find(g => g.prefix === activeGroup.value)
-  return g ? g.icons : groups.value[0]?.icons ?? []
-})
+function retry() {
+  loadErr.value = ''
+  iconNames.value = []
+  loadIcons()
+}
 
-const filtered = computed(() => {
+const results = computed(() => {
   const q = search.value.trim().toLowerCase()
   if (!q) return [] as string[]
-  const all: string[] = []
-  for (const g of groups.value) {
-    for (const n of g.icons) {
-      if (n.includes(q)) all.push(n)
-      if (all.length >= 200) break
-    }
-    if (all.length >= 200) break
+  const matched: string[] = []
+  for (const name of iconNames.value) {
+    if (name.includes(q)) matched.push(name)
+    if (matched.length >= MAX_RESULTS) break
   }
-  return all
+  return matched
 })
 
+const displayIcons = computed(() =>
+  search.value.trim() ? results.value : COMMON
+)
+
 const visibleRows = computed(() => {
-  const list: string[] = search.value.trim() ? filtered.value : currentIcons.value
+  const list = displayIcons.value
   if (!list.length) return []
   const total = Math.min(list.length, COLS * (VISIBLE_ROWS + BUFFER * 2))
   if (list.length <= total) {
@@ -135,13 +150,12 @@ const visibleRows = computed(() => {
   return rows
 })
 
-const totalHeight = computed(() => {
-  const list: string[] = search.value.trim() ? filtered.value : currentIcons.value
-  return Math.max(1, Math.ceil(list.length / COLS)) * ROW_H
-})
+const totalHeight = computed(() =>
+  Math.max(1, Math.ceil(displayIcons.value.length / COLS)) * ROW_H
+)
 
 const offsetY = computed(() => {
-  const list: string[] = search.value.trim() ? filtered.value : currentIcons.value
+  const list = displayIcons.value
   if (list.length <= COLS * (VISIBLE_ROWS + BUFFER * 2)) return 0
   const startRow = Math.max(0, Math.floor(scrollTop.value / ROW_H) - BUFFER)
   return startRow * ROW_H
@@ -180,7 +194,7 @@ watch(open, (v) => {
   if (!v) { search.value = ''; scrollTop.value = 0 }
 })
 
-watch([activeGroup, search], () => { scrollTop.value = 0 })
+watch(search, () => { scrollTop.value = 0 })
 </script>
 
 <style scoped>
@@ -215,22 +229,6 @@ watch([activeGroup, search], () => { scrollTop.value = 0 })
 }
 .pick-search:focus { outline: none; }
 
-.pick-tabs {
-  display: flex; gap: 2px; padding: 4px 6px;
-  overflow-x: auto; flex-shrink: 0;
-  border-bottom: 1px solid var(--border-light);
-}
-.pick-tabs::-webkit-scrollbar { height: 0; }
-.tab {
-  font-size: 11px; padding: 2px 8px; height: 22px;
-  border: 1px solid transparent; border-radius: var(--r-full);
-  background: transparent; color: var(--text-secondary);
-  cursor: pointer; white-space: nowrap; flex-shrink: 0;
-  transition: all var(--fast) var(--ease);
-}
-.tab:hover { background: var(--surface-hover); color: var(--text); }
-.tab.sel { background: var(--accent-subtle); color: var(--accent); border-color: var(--accent); }
-
 .pick-grid {
   flex: 1; overflow-y: auto;
   padding: 4px;
@@ -255,4 +253,13 @@ watch([activeGroup, search], () => { scrollTop.value = 0 })
   padding: 8px 10px; font-size: var(--fs-xs); color: var(--text-muted);
   border-top: 1px solid var(--border-light); flex-shrink: 0;
 }
+.pick-err {
+  display: flex; align-items: center; gap: 8px;
+}
+.retry-btn {
+  background: var(--accent); color: var(--accent-fg);
+  border: none; border-radius: var(--r-sm);
+  padding: 2px 8px; font-size: var(--fs-xs); cursor: pointer;
+}
+.retry-btn:hover { background: var(--accent-hover); }
 </style>
