@@ -218,7 +218,7 @@ watch(search, () => { scrollTop.value = 0 })
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-lg);
   width: 248px;
-  min-height: 100px;
+  min-height: 200px;
   max-height: 320px;
   display: flex; flex-direction: column;
   overflow: hidden;

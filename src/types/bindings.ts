@@ -2,6 +2,7 @@ export interface ItemType {
   id: number
   name: string
   icon: string
+  namespace: string
   fields: Field[]
 }
 
@@ -44,6 +45,7 @@ export interface Group {
 export interface Tag {
   id: number
   name: string
+  namespace: string
 }
 
 export interface FileNode {

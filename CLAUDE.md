@@ -138,6 +138,7 @@ Tauri automatically serializes/deserializes between TypeScript types (in `types/
 - Groups form a tree via `parent_id`; tags are flat.
 - `item_groups` and `item_tags` are many-to-many junction tables.
 - File paths are resolved through `safe_path.rs` which canonicalizes and checks for traversal attacks (`../../etc/passwd` → error).
+- All entities (item_types, items, groups, tags) carry a `namespace` column (default `'default'`). Currently hardcoded — workspace-level namespace switching is a future feature.
 
 ### Design System
 
@@ -164,6 +165,31 @@ Components style directly with scoped `<style>` blocks referencing these tokens.
 - **Properties auto-save**: `PropertiesForm.vue` mutates `detail.item.properties` directly and calls `saveProperties()` which debounces 500ms before invoking `update_item`.
 - **Page reload protection**: `EmptyState.vue`'s `openRepo`/`doCreate` functions call `repoStore.openRepo()`/`createRepo()` then load all stores and emit `repoOpened` — no URL-encoded state.
 - **Cargo.toml dependencies**: `tauri`, `sqlx` (sqlite, runtime-tokio), `serde`/`serde_json`, `sha2`, `hex`, `rand`, `chrono`, `open`, `tauri-plugin-shell`.
+
+## Backward Compatibility Constraints
+
+All changes MUST preserve compatibility with existing user data. The following are **locked** and must not be broken:
+
+### Database Schema
+- Evolve only through additive sqlx migrations — `ALTER TABLE ... ADD COLUMN` with `DEFAULT`
+- Never rename or drop existing tables or columns
+- Never change existing column types
+- Preset item types (id=1, id=2) and their fields must not be deleted or renamed
+
+### Repository Layout
+- `.index/index.db` — database path is stable
+- `.index/state.json` — top-level keys are additive only; never remove or rename existing keys
+- `{12-char-hex}/` item folders — naming algorithm (SHA256 of 16 random bytes, first 6 bytes → 12 hex) is immutable
+- `<item-name>.md` auto-generation on item creation is a stable contract
+
+### IPC Interface
+- Rust struct fields in `models.rs` are additive only — new fields must be `Option<T>` or have a `Default`
+- Command signatures in `lib.rs` may add new optional parameters but never remove or reorder existing ones
+- TypeScript types in `types/bindings.ts` mirror Rust structs exactly; keep them in sync
+
+### Not Covered
+- Vue component internals, CSS, Pinia store logic — free to refactor
+- Features not yet built (plugin system, workspaces, etc.) — design them before implementing
 
 ## Design Docs
 

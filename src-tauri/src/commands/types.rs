@@ -16,14 +16,14 @@ fn get_pool(state: &State<'_, AppState>) -> Result<SqlitePool, String> {
 pub async fn list_item_types(state: State<'_, AppState>) -> Result<Vec<ItemType>, String> {
     let pool = get_pool(&state)?;
 
-    let type_rows: Vec<(i64, String, String)> =
-        sqlx::query_as("SELECT id, name, icon FROM item_types ORDER BY id")
+    let type_rows: Vec<(i64, String, String, String)> =
+        sqlx::query_as("SELECT id, name, icon, namespace FROM item_types ORDER BY id")
             .fetch_all(&pool)
             .await
             .map_err(|e| e.to_string())?;
 
     let mut result = vec![];
-    for (id, name, icon) in type_rows {
+    for (id, name, icon, namespace) in type_rows {
         let field_rows: Vec<(i64, i64, String, String, String, i32, String)> = sqlx::query_as(
             "SELECT f.id, f.type_id, f.name, f.field_type, f.icon, f.position, f.label FROM fields f WHERE f.type_id = ? ORDER BY f.position",
         )
@@ -49,6 +49,7 @@ pub async fn list_item_types(state: State<'_, AppState>) -> Result<Vec<ItemType>
             id,
             name,
             icon,
+            namespace,
             fields,
         });
     }
@@ -66,7 +67,7 @@ pub async fn create_item_type(
     let icon = icon.unwrap_or_else(|| "📄".to_string());
 
     let id: i64 = sqlx::query_scalar(
-        "INSERT INTO item_types (name, icon) VALUES (?, ?) RETURNING id",
+        "INSERT INTO item_types (name, icon, namespace) VALUES (?, ?, 'default') RETURNING id",
     )
     .bind(&name)
     .bind(&icon)
@@ -78,6 +79,7 @@ pub async fn create_item_type(
         id,
         name,
         icon,
+        namespace: "default".into(),
         fields: vec![],
     })
 }
@@ -190,6 +192,14 @@ pub async fn update_item_type(
         .map_err(|e| e.to_string())?;
 
     // Return updated type with its fields
+    let (_, _, _, namespace): (i64, String, String, String) = sqlx::query_as(
+        "SELECT id, name, icon, namespace FROM item_types WHERE id = ?",
+    )
+    .bind(id)
+    .fetch_one(&pool)
+    .await
+    .map_err(|e| e.to_string())?;
+
     let field_rows: Vec<(i64, i64, String, String, String, i32, String)> = sqlx::query_as(
         "SELECT f.id, f.type_id, f.name, f.field_type, f.icon, f.position, f.label FROM fields f WHERE f.type_id = ? ORDER BY f.position",
     )
@@ -211,7 +221,7 @@ pub async fn update_item_type(
         })
         .collect();
 
-    Ok(ItemType { id, name, icon, fields })
+    Ok(ItemType { id, name, icon, namespace, fields })
 }
 
 #[tauri::command]

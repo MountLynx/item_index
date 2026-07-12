@@ -39,8 +39,8 @@ fn read_dir_recursive(path: &Path) -> Result<Vec<FileNode>, String> {
 }
 
 async fn fetch_type(pool: &SqlitePool, type_id: i64) -> Result<ItemType, String> {
-    let (id, name, icon): (i64, String, String) = sqlx::query_as(
-        "SELECT id, name, icon FROM item_types WHERE id = ?"
+    let (id, name, icon, namespace): (i64, String, String, String) = sqlx::query_as(
+        "SELECT id, name, icon, namespace FROM item_types WHERE id = ?"
     ).bind(type_id).fetch_one(pool).await.map_err(|e| e.to_string())?;
 
     let field_rows: Vec<(i64, i64, String, String, String, i32, String)> = sqlx::query_as(
@@ -51,7 +51,7 @@ async fn fetch_type(pool: &SqlitePool, type_id: i64) -> Result<ItemType, String>
         id: fid, type_id: tid, name: n, field_type: ft, icon: ficon, position: pos, label,
     }).collect();
 
-    Ok(ItemType { id, name, icon, fields })
+    Ok(ItemType { id, name, icon, namespace, fields })
 }
 
 async fn fetch_item_groups(pool: &SqlitePool, item_id: &str) -> Result<Vec<Group>, String> {
@@ -67,13 +67,13 @@ async fn fetch_item_groups(pool: &SqlitePool, item_id: &str) -> Result<Vec<Group
 }
 
 async fn fetch_item_tags(pool: &SqlitePool, item_id: &str) -> Result<Vec<Tag>, String> {
-    let rows: Vec<(i64, String)> = sqlx::query_as(
-        "SELECT t.id, t.name FROM tags t
+    let rows: Vec<(i64, String, String)> = sqlx::query_as(
+        "SELECT t.id, t.name, t.namespace FROM tags t
          INNER JOIN item_tags it ON t.id = it.tag_id
          WHERE it.item_id = ?"
     ).bind(item_id).fetch_all(pool).await.map_err(|e| e.to_string())?;
 
-    Ok(rows.into_iter().map(|(id, name)| Tag { id, name }).collect())
+    Ok(rows.into_iter().map(|(id, name, namespace)| Tag { id, name, namespace }).collect())
 }
 
 #[tauri::command]

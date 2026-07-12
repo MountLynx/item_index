@@ -5,6 +5,7 @@ pub struct ItemType {
     pub id: i64,
     pub name: String,
     pub icon: String,
+    pub namespace: String,
     pub fields: Vec<Field>,
 }
 
@@ -52,6 +53,7 @@ pub struct Group {
 pub struct Tag {
     pub id: i64,
     pub name: String,
+    pub namespace: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

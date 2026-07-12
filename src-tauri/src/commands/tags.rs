@@ -10,21 +10,21 @@ fn get_pool(state: &State<'_, AppState>) -> Result<SqlitePool, String> {
 #[tauri::command]
 pub async fn list_tags(state: State<'_, AppState>) -> Result<Vec<Tag>, String> {
     let pool = get_pool(&state)?;
-    let rows: Vec<(i64, String)> = sqlx::query_as(
-        "SELECT id, name FROM tags ORDER BY name"
+    let rows: Vec<(i64, String, String)> = sqlx::query_as(
+        "SELECT id, name, namespace FROM tags ORDER BY name"
     ).fetch_all(&pool).await.map_err(|e| e.to_string())?;
 
-    Ok(rows.into_iter().map(|(id, name)| Tag { id, name }).collect())
+    Ok(rows.into_iter().map(|(id, name, namespace)| Tag { id, name, namespace }).collect())
 }
 
 #[tauri::command]
 pub async fn create_tag(state: State<'_, AppState>, name: String) -> Result<Tag, String> {
     let pool = get_pool(&state)?;
     let id: i64 = sqlx::query_scalar(
-        "INSERT INTO tags (name) VALUES (?) RETURNING id"
+        "INSERT INTO tags (name, namespace) VALUES (?, 'default') RETURNING id"
     ).bind(&name).fetch_one(&pool).await.map_err(|e| e.to_string())?;
 
-    Ok(Tag { id, name })
+    Ok(Tag { id, name, namespace: "default".into() })
 }
 
 #[tauri::command]
