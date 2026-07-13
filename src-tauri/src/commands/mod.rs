@@ -1,3 +1,4 @@
+pub mod dashboard;
 pub mod repo;
 pub mod types;
 pub mod items;
