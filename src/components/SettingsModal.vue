@@ -218,18 +218,19 @@ function onDeletePreset(): void {
   localCSS.value = ''
 }
 
-function onSave(): void {
+async function onSave(): Promise<void> {
   settingsStore.themeMode = localMode.value
   settingsStore.accentColor = localAccentColor.value
   settingsStore.fontSize = localFontSize.value
-  settingsStore.presetCSS = localCSS.value
   settingsStore.save()
-  settingsStore.applyTheme()
 
-  // Persist active preset to state.json
+  // Persist preset selection first (doesn't touch presetCSS)
   if (selectedPresetId.value !== settingsStore.activePresetId) {
-    settingsStore.setActivePreset(selectedPresetId.value)
+    await settingsStore.setActivePreset(selectedPresetId.value)
   }
+  // Then apply editor content — overrides whatever setActivePreset did to presetCSS
+  settingsStore.presetCSS = localCSS.value
+  settingsStore.applyTheme()
 
   close()
 }
