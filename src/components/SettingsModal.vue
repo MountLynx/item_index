@@ -53,6 +53,28 @@
                   <input type="color" v-model="localAccentColor" class="color-input" />
                 </div>
                 <div class="setting-row">
+                  <label>背景色</label>
+                  <input type="color" v-model="localBgColor" class="color-input" />
+                </div>
+                <div class="setting-row">
+                  <label>
+                    字体色
+                    <span v-if="localTextColorAuto" class="auto-tag">自动 ✨</span>
+                  </label>
+                  <div class="text-color-group">
+                    <input
+                      type="color"
+                      v-model="localTextColor"
+                      class="color-input"
+                      :disabled="localTextColorAuto"
+                    />
+                    <label class="checkbox-label">
+                      <input type="checkbox" v-model="localTextColorAuto" />
+                      <span class="text-xs">自动</span>
+                    </label>
+                  </div>
+                </div>
+                <div class="setting-row">
                   <label>字号</label>
                   <div class="btn-group">
                     <button
@@ -98,7 +120,11 @@
                   spellcheck="false"
                   placeholder=":root {&#10;  --accent: #1A1C1E;&#10;}"
                 ></textarea>
-                <button class="sm" @click="onSaveAs">保存为预设</button>
+                <div class="css-actions">
+                  <button class="sm primary" @click="applyPreset">应用</button>
+                  <button class="sm" @click="onSaveAs">保存为预设</button>
+                  <button class="sm" @click="onSyncFromCSS">与自定义主题保持一致</button>
+                </div>
               </div>
             </div>
           </div>
@@ -116,7 +142,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { useSettingsStore } from '@/stores/settings'
+import { useSettingsStore, parseCSSVariables } from '@/stores/settings'
 import { useThemeStore } from '@/stores/theme'
 import TablerIcon from './TablerIcon.vue'
 
@@ -138,12 +164,18 @@ const localMode = ref<'light' | 'dark'>('light')
 const localAccentColor = ref('#1A1C1E')
 const localFontSize = ref<'small' | 'medium' | 'large'>('medium')
 const localCSS = ref('')
+const localBgColor = ref('#FFFFFF')
+const localTextColor = ref('#333333')
+const localTextColorAuto = ref(true)
 const selectedPresetId = ref<string | null>(null)
 
 // Snapshot for cancel restore
 let snapshot: {
   mode: 'light' | 'dark'
   accentColor: string
+  bgColor: string
+  textColor: string
+  textColorAuto: boolean
   fontSize: 'small' | 'medium' | 'large'
   presetCSS: string
   activePresetId: string | null
@@ -154,6 +186,9 @@ function open(): void {
   snapshot = {
     mode: settingsStore.themeMode,
     accentColor: settingsStore.accentColor,
+    bgColor: settingsStore.bgColor,
+    textColor: settingsStore.textColor,
+    textColorAuto: settingsStore.textColorAuto,
     fontSize: settingsStore.fontSize,
     presetCSS: settingsStore.presetCSS,
     activePresetId: settingsStore.activePresetId,
@@ -162,6 +197,9 @@ function open(): void {
   // Init local state from store
   localMode.value = settingsStore.themeMode
   localAccentColor.value = settingsStore.accentColor
+  localBgColor.value = settingsStore.bgColor
+  localTextColor.value = settingsStore.textColor
+  localTextColorAuto.value = settingsStore.textColorAuto
   localFontSize.value = settingsStore.fontSize
   localCSS.value = settingsStore.presetCSS
   selectedPresetId.value = settingsStore.activePresetId
@@ -175,11 +213,13 @@ function close(): void {
 }
 
 // Live preview: watch local basic settings and apply immediately
-watch([localMode, localAccentColor, localFontSize], () => {
+watch([localMode, localAccentColor, localBgColor, localTextColor, localTextColorAuto, localFontSize], () => {
   themeStore.mode = localMode.value
   themeStore.apply()
-  // Temporarily set store state for live preview (will be restored on cancel)
   settingsStore.accentColor = localAccentColor.value
+  settingsStore.bgColor = localBgColor.value
+  settingsStore.textColor = localTextColor.value
+  settingsStore.textColorAuto = localTextColorAuto.value
   settingsStore.fontSize = localFontSize.value
   settingsStore.applyTheme()
 })
@@ -188,7 +228,11 @@ function applyPreset(): void {
   if (selectedPresetId.value) {
     const preset = settingsStore.presets.find(p => p.id === selectedPresetId.value)
     localCSS.value = preset?.css ?? ''
-    // Apply the CSS immediately
+    // Backfill form from CSS
+    if (localCSS.value) {
+      backfillFormFromCSS(localCSS.value)
+    }
+    // Inject the CSS as theme-preset
     let el = document.getElementById('theme-preset') as HTMLStyleElement | null
     if (!el) {
       el = document.createElement('style')
@@ -200,6 +244,29 @@ function applyPreset(): void {
     localCSS.value = ''
     document.getElementById('theme-preset')?.remove()
   }
+}
+
+function backfillFormFromCSS(css: string): void {
+  const overrides = parseCSSVariables(css)
+  if (overrides.accentColor) localAccentColor.value = overrides.accentColor
+  if (overrides.bgColor) localBgColor.value = overrides.bgColor
+  if (overrides.textColor) {
+    localTextColor.value = overrides.textColor
+    localTextColorAuto.value = false
+  }
+  if (overrides.fontSize) localFontSize.value = overrides.fontSize
+}
+
+function onSyncFromCSS(): void {
+  if (!localCSS.value.trim()) return
+  backfillFormFromCSS(localCSS.value)
+  // Apply the synced values immediately
+  settingsStore.accentColor = localAccentColor.value
+  settingsStore.bgColor = localBgColor.value
+  settingsStore.textColor = localTextColor.value
+  settingsStore.textColorAuto = localTextColorAuto.value
+  settingsStore.fontSize = localFontSize.value
+  settingsStore.applyTheme()
 }
 
 function onSaveAs(): void {
@@ -222,6 +289,9 @@ function onDeletePreset(): void {
 async function onSave(): Promise<void> {
   settingsStore.themeMode = localMode.value
   settingsStore.accentColor = localAccentColor.value
+  settingsStore.bgColor = localBgColor.value
+  settingsStore.textColor = localTextColor.value
+  settingsStore.textColorAuto = localTextColorAuto.value
   settingsStore.fontSize = localFontSize.value
   settingsStore.save()
 
@@ -243,6 +313,9 @@ function onCancel(): void {
     themeStore.apply()
     settingsStore.themeMode = snapshot.mode
     settingsStore.accentColor = snapshot.accentColor
+    settingsStore.bgColor = snapshot.bgColor
+    settingsStore.textColor = snapshot.textColor
+    settingsStore.textColorAuto = snapshot.textColorAuto
     settingsStore.fontSize = snapshot.fontSize
     settingsStore.presetCSS = snapshot.presetCSS
     settingsStore.activePresetId = snapshot.activePresetId
@@ -399,5 +472,20 @@ defineExpose({ open, close })
   padding: 12px 16px;
   border-top: 1px solid var(--border);
   flex-shrink: 0;
+}
+
+.auto-tag {
+  font-size: var(--fs-xs); color: var(--text-muted);
+  font-weight: var(--fw-normal); margin-left: 4px;
+}
+.text-color-group {
+  display: flex; align-items: center; gap: 8px;
+}
+.checkbox-label {
+  display: flex; align-items: center; gap: 4px; cursor: pointer;
+  font-size: var(--fs-xs); color: var(--text-secondary);
+}
+.css-actions {
+  display: flex; gap: 6px; flex-wrap: wrap;
 }
 </style>
