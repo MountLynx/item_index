@@ -61,6 +61,7 @@ async function onRepoOpened() {
 onMounted(() => {
   settingsStore.load()
   themeStore.init()
+  settingsStore.applyTheme()
 })
 </script>
 
