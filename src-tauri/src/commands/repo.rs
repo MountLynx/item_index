@@ -127,3 +127,49 @@ pub async fn get_repo_info(state: State<'_, AppState>) -> Result<RepoInfo, Strin
         db_version: 1,
     })
 }
+
+#[tauri::command]
+pub async fn get_state(state: State<'_, AppState>) -> Result<serde_json::Value, String> {
+    let repo_path = get_repo_path(&state)?;
+    let state_path = Path::new(&repo_path).join(".index").join("state.json");
+
+    if !state_path.exists() {
+        return Ok(serde_json::json!({"theme": "light"}));
+    }
+
+    let content = std::fs::read_to_string(&state_path)
+        .map_err(|e| format!("Read error: {}", e))?;
+    let value: serde_json::Value = serde_json::from_str(&content)
+        .map_err(|e| format!("Parse error: {}", e))?;
+    Ok(value)
+}
+
+#[tauri::command]
+pub async fn save_state(state: State<'_, AppState>, new_state: serde_json::Value) -> Result<(), String> {
+    let repo_path = get_repo_path(&state)?;
+    let state_path = Path::new(&repo_path).join(".index").join("state.json");
+
+    // Read existing, merge to preserve unknown keys
+    let mut current: serde_json::Value = if state_path.exists() {
+        let content = std::fs::read_to_string(&state_path)
+            .map_err(|e| format!("Read error: {}", e))?;
+        serde_json::from_str(&content)
+            .map_err(|e| format!("Parse error: {}", e))?
+    } else {
+        serde_json::json!({})
+    };
+
+    // Merge: new_state keys overwrite current
+    if let (serde_json::Value::Object(ref mut cur_map), serde_json::Value::Object(new_map)) = (&mut current, &new_state) {
+        for (k, v) in new_map {
+            cur_map.insert(k.clone(), v.clone());
+        }
+    }
+
+    let content = serde_json::to_string_pretty(&current)
+        .map_err(|e| format!("Serialize error: {}", e))?;
+    std::fs::write(&state_path, content)
+        .map_err(|e| format!("Write error: {}", e))?;
+
+    Ok(())
+}

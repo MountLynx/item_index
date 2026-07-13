@@ -23,6 +23,8 @@ pub fn run() {
             commands::repo::open_repo,
             commands::repo::close_repo,
             commands::repo::get_repo_info,
+            commands::repo::get_state,
+            commands::repo::save_state,
             commands::types::list_item_types,
             commands::types::create_item_type,
             commands::types::delete_item_type,
