@@ -59,3 +59,11 @@ export interface RepoInfo {
   item_count: number
   db_version: number
 }
+
+export interface ManagedRepo {
+  path: string
+  icon: string | null
+  name: string | null
+  last_opened_at: string
+  item_count: number | null
+}
