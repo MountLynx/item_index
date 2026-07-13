@@ -1,5 +1,5 @@
 export default {
-  topbar: { newItem: '新建条目' },
+  topbar: { newItem: '新建条目', manageRepos: '仓库管理' },
   settings: {
     title: '设置', general: '通用', theme: '主题',
     mode: '模式', light: '浅色', dark: '深色',

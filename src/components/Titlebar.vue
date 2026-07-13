@@ -17,8 +17,8 @@
       <button class="icon-btn tb-icon" @click.stop="openSettings" :title="$t('common.settings')">
         <TablerIcon name="settings" :size="17" />
       </button>
-      <button class="icon-btn tb-icon" @click.stop="$emit('openTypeManager')" :title="$t('common.category')">
-        <TablerIcon name="category" :size="17" />
+      <button class="icon-btn tb-icon" @click.stop="openDashboard" :title="$t('topbar.manageRepos')">
+        <TablerIcon name="database" :size="17" />
       </button>
 
       <span class="tb-sep" />
@@ -41,13 +41,25 @@
 import { inject } from 'vue'
 import { useRepoStore } from '@/stores/repo'
 import { getCurrentWindow } from '@tauri-apps/api/window'
+import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
 import TablerIcon from './TablerIcon.vue'
 
 const repoStore = useRepoStore()
 
-defineEmits<{ newItem: []; openTypeManager: [] }>()
+defineEmits<{ newItem: [] }>()
 
 const openSettings = inject<() => void>('openSettings', () => {})
+
+function openDashboard() {
+  new WebviewWindow('dashboard-' + Date.now(), {
+    url: '/',
+    title: 'Index — 仓库管理',
+    width: 900,
+    height: 640,
+    resizable: true,
+    decorations: false,
+  })
+}
 
 function basename(p: string): string { return p.split(/[/\\]/).pop() || p }
 

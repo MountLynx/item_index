@@ -1,5 +1,5 @@
 export default {
-  topbar: { newItem: 'New Item' },
+  topbar: { newItem: 'New Item', manageRepos: 'Manage Repos' },
   settings: {
     title: 'Settings', general: 'General', theme: 'Appearance',
     mode: 'Mode', light: 'Light', dark: 'Dark',
