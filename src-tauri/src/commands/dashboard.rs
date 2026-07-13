@@ -33,7 +33,7 @@ pub async fn add_managed_repo(
     path: String,
     icon: Option<String>,
     name: Option<String>,
-    item_count: Option<i32>,
+    item_count: Option<i64>,
 ) -> Result<Vec<ManagedRepo>, String> {
     let mut repos = read(&app)?;
     let now = chrono::Utc::now().to_rfc3339();

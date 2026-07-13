@@ -76,5 +76,5 @@ pub struct ManagedRepo {
     pub icon: Option<String>,
     pub name: Option<String>,
     pub last_opened_at: String,
-    pub item_count: Option<i32>,
+    pub item_count: Option<i64>,
 }

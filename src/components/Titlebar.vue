@@ -42,8 +42,10 @@ import { inject } from 'vue'
 import { useRepoStore } from '@/stores/repo'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
+import { useI18n } from 'vue-i18n'
 import TablerIcon from './TablerIcon.vue'
 
+const { t } = useI18n()
 const repoStore = useRepoStore()
 
 defineEmits<{ newItem: [] }>()
@@ -53,11 +55,11 @@ const openSettings = inject<() => void>('openSettings', () => {})
 function openDashboard() {
   new WebviewWindow('dashboard-' + Date.now(), {
     url: '/',
-    title: 'Index — 仓库管理',
+    title: `${t('dashboard.title')} — ${t('topbar.manageRepos')}`,
     width: 900,
     height: 640,
     resizable: true,
-    decorations: false,
+    decorations: true,
   })
 }
 

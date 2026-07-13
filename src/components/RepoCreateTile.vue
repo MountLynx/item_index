@@ -1,5 +1,5 @@
 <template>
-  <div class="create-tile" @click="showMenu = !showMenu">
+  <div class="create-tile" @click.stop="showMenu = !showMenu">
     <div class="create-plus">+</div>
     <div class="create-label">{{ $t('dashboard.createOrImport') }}</div>
     <div v-if="showMenu" class="create-menu" @click.stop>
@@ -14,11 +14,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import TablerIcon from './TablerIcon.vue'
 
 defineEmits<{ create: []; import: [] }>()
 const showMenu = ref(false)
+
+function onClickOutside(_e: MouseEvent) {
+  if (showMenu.value) {
+    showMenu.value = false
+  }
+}
+
+onMounted(() => document.addEventListener('click', onClickOutside))
+onUnmounted(() => document.removeEventListener('click', onClickOutside))
 </script>
 
 <style scoped>

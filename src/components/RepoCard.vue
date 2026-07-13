@@ -22,7 +22,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { ManagedRepo } from '@/types/bindings'
 import TablerIcon from './TablerIcon.vue'
@@ -33,6 +33,15 @@ const props = defineProps<{ repo: ManagedRepo }>()
 const emit = defineEmits<{ open: []; delete: [] }>()
 
 const showMenu = ref(false)
+
+function onClickOutside(_e: MouseEvent) {
+  if (showMenu.value) {
+    showMenu.value = false
+  }
+}
+
+onMounted(() => document.addEventListener('click', onClickOutside))
+onUnmounted(() => document.removeEventListener('click', onClickOutside))
 
 const displayIcon = computed(() => props.repo.icon || '📁')
 const displayName = computed(() => props.repo.name || basename(props.repo.path))

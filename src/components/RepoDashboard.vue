@@ -65,8 +65,6 @@ onMounted(() => {
 async function openRepo(repo: ManagedRepo) {
   try {
     await repoStore.openRepo(repo.path)
-    // Update last_opened_at and item_count in background
-    await store.addRepo(repo.path, repo.icon ?? undefined)
     await loadStores()
     emit('repoOpened')
   } catch {
@@ -94,15 +92,8 @@ async function doCreate() {
 async function doImport() {
   const selected = await open({ directory: true, multiple: false, title: t('dashboard.selectFolder') })
   if (!selected) return
-  // Verify it has .index/index.db
-  try {
-    await repoStore.openRepo(selected)
-    // It opened successfully — close it and add to managed list
-    await repoStore.closeRepo()
-    await store.addRepo(selected)
-  } catch {
-    alert(t('dashboard.notAValidRepo'))
-  }
+  // Trust the user's selection and register it; opening will fail gracefully if invalid
+  await store.addRepo(selected)
 }
 
 async function loadStores() {
