@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+When using subagents, avoid the deepseek-v4-pro model as it is known to cause errors (e.g., "deepseek-v4-pro is temporarily unavailable...") due to an internal parameter conflict in subagent requests. Instead, use the deepseek-v4-flash model for all subagent operations. If you encounter the error, switch to flash or a supported Anthropic model. This ensures subagent actions (like file edits, command execution, or other non‑read‑only operations) work without interruption.
+
 ## Project Overview
 
 **Index** — a local-first, plugin-extensible object manager built on Tauri 2. Think "personal wiki meets Zotero": items with dynamic types, multi-level groups, flat tags, and file attachments stored in hash-named folders. The vision is a general-purpose data manager that can become a calendar, library tracker, or knowledge base through plugins and workspace configurations.
