@@ -71,7 +71,7 @@ async function deleteItem() { if (menu.item && confirm(`确定删除"${menu.item
 .list { padding: 4px 0; }
 .row {
   display: flex; align-items: center; gap: 10px;
-  padding: 8px 12px 8px 8px; margin: 1px 8px; border-radius: var(--r-md);
+  padding: 4px 12px 4px 8px; margin: 1px 8px; border-radius: var(--r-md);
   cursor: pointer; user-select: none; transition: background var(--fast) var(--ease);
 }
 .row:hover { background: var(--surface-hover); }
