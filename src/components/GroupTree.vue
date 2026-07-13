@@ -2,8 +2,8 @@
   <div>
     <GroupTreeNode v-for="g in groupStore.tree" :key="g.id" :group="g" :depth="0" :selected-id="selectedId" @select="onSelect" />
     <div class="add" @click="startAdd">
-      <span v-if="!adding" class="hint">+ 新建根分组</span>
-      <input v-else ref="inp" v-model="name" placeholder="分组名" @keydown.enter="doAdd" @keydown.escape="cancel" @blur="cancel" />
+      <span v-if="!adding" class="hint">+ {{ $t('groupTree.newGroup') }}</span>
+      <input v-else ref="inp" v-model="name" :placeholder="$t('groupTree.groupName')" @keydown.enter="doAdd" @keydown.escape="cancel" @blur="cancel" />
     </div>
   </div>
 </template>

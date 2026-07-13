@@ -5,7 +5,7 @@
         <TablerIcon name="hash" :size="12" />{{ tag.name }}
       </span>
     </div>
-    <input class="inp" v-model="name" placeholder="新建标签" @keydown.enter="add" />
+    <input class="inp" v-model="name" :placeholder="$t('tagList.newTag')" @keydown.enter="add" />
   </div>
 </template>
 

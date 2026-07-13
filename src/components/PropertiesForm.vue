@@ -10,7 +10,7 @@
         <span class="check-label">{{ field.label || field.name }}</span>
       </label>
     </div>
-    <div v-if="detail.item_type.fields.length === 0" class="text-muted" style="font-size:var(--font-size-xs)">此类型无自定义属性</div>
+    <div v-if="detail.item_type.fields.length === 0" class="text-muted" style="font-size:var(--font-size-xs)">{{ $t('propertiesForm.noCustomFields') }}</div>
   </div>
 </template>
 

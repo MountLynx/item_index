@@ -13,7 +13,7 @@
           name="icon-search"
           v-model="search"
           class="pick-search"
-          placeholder="搜索图标…"
+          :placeholder="$t('iconPicker.search')"
           @keydown.escape="open = false"
         />
 
@@ -37,14 +37,14 @@
         </div>
 
         <div v-if="search && !loadErr && !iconNames.length" class="pick-empty">
-          加载中…
+          {{ $t('iconPicker.loading') }}
         </div>
         <div v-if="search && loadErr" class="pick-empty pick-err">
-          ⚠ 图标加载失败
-          <button class="retry-btn" @click="retry">重试</button>
+          ⚠ {{ $t('iconPicker.loadError') }}
+          <button class="retry-btn" @click="retry">{{ $t('iconPicker.retry') }}</button>
         </div>
         <div v-if="search && !loadErr && iconNames.length && !results.length" class="pick-empty">
-          无匹配，可输入 emoji 直接使用
+          {{ $t('iconPicker.noResults') }}
         </div>
       </div>
     </Teleport>

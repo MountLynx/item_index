@@ -15,14 +15,14 @@
       <GroupTreeNode v-for="child in group.children" :key="child.id" :group="child" :depth="depth + 1" :selected-id="selectedId" @select="onSelect" />
     </div>
     <div v-if="expanded && adding" class="row" :style="{ paddingLeft: (depth + 1) * 18 + 8 + 'px' }">
-      <input ref="addInp" v-model="addName" placeholder="子分组名" @keydown.enter="doAdd" @keydown.escape="cancel" @blur="cancel" />
+      <input ref="addInp" v-model="addName" :placeholder="$t('groupTree.groupName')" @keydown.enter="doAdd" @keydown.escape="cancel" @blur="cancel" />
     </div>
 
     <Teleport to="body">
       <div v-if="ctx.show" class="ctx-overlay" @click="ctx.show = false" @contextmenu.prevent="ctx.show = false">
         <div class="ctx-menu" :style="{ left: ctx.x + 'px', top: ctx.y + 'px' }">
-          <button class="ctx-item" @click="startAdd">+ 新建子分组</button>
-          <button class="ctx-item danger" @click="doDelete">删除分组</button>
+          <button class="ctx-item" @click="startAdd">+ {{ $t('groupTree.newSubGroup') }}</button>
+          <button class="ctx-item danger" @click="doDelete">{{ $t('common.delete') }}</button>
         </div>
       </div>
     </Teleport>
@@ -31,11 +31,13 @@
 
 <script setup lang="ts">
 import { ref, reactive, nextTick } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useGroupStore } from '@/stores/groups'
 import { useToast } from '@/composables/toast'
 import type { Group } from '@/types/bindings'
 import TablerIcon from './TablerIcon.vue'
 
+const { t } = useI18n()
 const props = defineProps<{ group: Group; depth: number; selectedId: number | null }>()
 const emit = defineEmits<{ select: [id: number | null] }>()
 
@@ -74,7 +76,7 @@ async function onDrop(e: DragEvent) {
   const itemId = e.dataTransfer?.getData('text/plain')
   if (itemId) {
     await groupStore.addItemToGroup(itemId, props.group.id)
-    toast.success(`已添加到分组"${props.group.name}"`)
+    toast.success(t('groupTree.addedToGroup', { name: props.group.name }))
   }
 }
 
@@ -86,7 +88,7 @@ async function doAdd() {
 function cancel() { adding.value = false; addName.value = '' }
 async function doDelete() {
   ctx.show = false
-  if (confirm(`确定删除分组"${props.group.name}"及其子分组？`)) await groupStore.remove(props.group.id)
+  if (confirm(t('groupTree.confirmDeleteGroup', { name: props.group.name }))) await groupStore.remove(props.group.id)
 }
 </script>
 

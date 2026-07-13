@@ -1,16 +1,16 @@
 <template>
   <div>
     <div class="hd">
-      <TablerIcon name="paperclip" :size="13" /> 附件
+      <TablerIcon name="paperclip" :size="13" /> {{ $t('fileTree.title') }}
       <span v-if="files && !loading" class="count">{{ fileCount }}</span>
     </div>
-    <div v-if="loading" class="status text-muted"><span class="spin" /> 加载中...</div>
-    <div v-else-if="!itemId" class="status text-muted">选择条目查看附件</div>
+    <div v-if="loading" class="status text-muted"><span class="spin" /> {{ $t('fileTree.loading') }}</div>
+    <div v-else-if="!itemId" class="status text-muted">{{ $t('fileTree.selectItem') }}</div>
     <div v-else-if="files" class="tree" :class="{ over: dragOver }"
       @dragover.prevent @drop.prevent="onDrop"
       @dragenter.prevent="onDragEnter" @dragleave.prevent="onDragLeave">
       <FileTreeNode v-for="child in files.children" :key="child.name" :node="child" :depth="0" :item-id="itemId!" @refresh="refresh" />
-      <div v-if="files.children.length === 0" class="status text-muted">拖入文件</div>
+      <div v-if="files.children.length === 0" class="status text-muted">{{ $t('fileTree.dragHere') }}</div>
     </div>
   </div>
 </template>

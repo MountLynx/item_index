@@ -17,10 +17,12 @@
 
 <script setup lang="ts">
 import { ref, nextTick } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { invoke } from '@tauri-apps/api/core'
 import type { FileNode } from '@/types/bindings'
 import TablerIcon from './TablerIcon.vue'
 
+const { t } = useI18n()
 const props = defineProps<{ node: FileNode; depth: number; itemId: string }>()
 const emit = defineEmits<{ refresh: [] }>()
 
@@ -48,12 +50,12 @@ async function onDrop(e: DragEvent) {
   }
 }
 function ctx() {
-  const c = prompt('操作: (R)重命名 (D)删除 (N)新建文件夹(仅目录)', '')
+  const c = prompt(t('fileTree.actionPrompt'), '')
   if (!c) return
   const a = c.toUpperCase()
-  if (a === 'D') { if (confirm(`删除"${props.node.name}"？`)) doDelete() }
+  if (a === 'D') { if (confirm(t('fileTree.confirmDeleteFile', { name: props.node.name }))) doDelete() }
   else if (a === 'R') startRename()
-  else if (a === 'N' && props.node.is_dir) { const n = prompt('文件夹名:'); if (n) { invoke('create_folder', { itemId: props.itemId, relPath: n }).then(() => emit('refresh')) } }
+  else if (a === 'N' && props.node.is_dir) { const n = prompt(t('fileTree.folderNamePrompt')); if (n) { invoke('create_folder', { itemId: props.itemId, relPath: n }).then(() => emit('refresh')) } }
 }
 async function doDelete() { await invoke('delete_file', { itemId: props.itemId, relPath: props.node.name }); emit('refresh') }
 async function startRename() { editing.value = true; editName.value = props.node.name; await nextTick(); eRef.value?.focus(); eRef.value?.select() }

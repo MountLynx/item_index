@@ -3,7 +3,7 @@
     <!-- ═══ Level 1: Type List ═══ -->
     <template v-if="view === 'list'">
       <div class="tm-header">
-        <h3>类别管理</h3>
+        <h3>{{ $t('typeManager.title') }}</h3>
       </div>
 
       <div class="type-list">
@@ -18,12 +18,12 @@
             <div class="type-row-main" @click="enterFieldView(t.id)">
               <TablerIcon :name="t.icon" :size="18" />
               <span class="type-name">{{ t.name }}</span>
-              <span v-if="t.id <= 2" class="preset-badge">预设</span>
+              <span v-if="t.id <= 2" class="preset-badge">{{ $t('typeManager.preset') }}</span>
             </div>
             <div class="type-row-actions">
               <button
                 class="icon-btn sm"
-                title="编辑"
+                :title="$t('typeManager.edit')"
                 @click.stop="startEditType(t)"
               >
                 <TablerIcon name="pencil" :size="14" />
@@ -31,7 +31,7 @@
               <button
                 v-if="t.id > 2"
                 class="icon-btn sm danger"
-                title="删除"
+                :title="$t('typeManager.delete')"
                 @click.stop="deleteTarget = { kind: 'type', id: t.id, name: t.name }"
               >
                 <TablerIcon name="dots" :size="14" />
@@ -46,7 +46,7 @@
               <input
                 v-model="editName"
                 class="name-input"
-                placeholder="类别名称"
+                :placeholder="$t('typeManager.typeName')"
                 @keydown.enter="saveEditType(t.id)"
                 @keydown.escape="cancelEditType"
               />
@@ -65,7 +65,7 @@
       <div class="new-row">
         <template v-if="!showNewType">
           <button class="add-btn" @click="showNewType = true">
-            <TablerIcon name="plus" :size="14" /> 新建类别
+            <TablerIcon name="plus" :size="14" /> {{ $t('typeManager.newType') }}
           </button>
         </template>
         <template v-else>
@@ -74,7 +74,7 @@
             <input
               v-model="newName"
               class="name-input"
-              placeholder="类别名称"
+              :placeholder="$t('typeManager.typeName')"
               @keydown.enter="createType"
               @keydown.escape="showNewType = false"
             />
@@ -101,7 +101,7 @@
 
       <!-- Category edit area -->
       <div class="cat-edit-section">
-        <div class="section-label">类别信息</div>
+        <div class="section-label">{{ $t('typeManager.typeInfo') }}</div>
         <template v-if="!editingCategory">
           <div class="cat-display" @click="startEditCategory">
             <TablerIcon :name="currentType.icon" :size="18" />
@@ -117,7 +117,7 @@
             <input
               v-model="catName"
               class="name-input"
-              placeholder="类别名称"
+              :placeholder="$t('typeManager.typeName')"
               @keydown.enter="saveCategory"
               @keydown.escape="editingCategory = false"
             />
@@ -134,12 +134,12 @@
       <!-- Fields list -->
       <div class="fields-section">
         <div class="section-label">
-          字段
-          <span class="count">{{ currentType.fields.length }} 项</span>
+          {{ $t('typeManager.fields') }}
+          <span class="count">{{ currentType.fields.length }}{{ $t('typeManager.items') }}</span>
         </div>
 
         <div v-if="currentType.fields.length === 0" class="empty-hint">
-          暂无字段，点击下方添加
+          {{ $t('typeManager.noFields') }}
         </div>
 
         <div
@@ -161,12 +161,12 @@
               </span>
               <TablerIcon :name="f.icon" :size="16" />
               <span class="field-name">{{ f.name }}</span>
-              <span class="type-tag">{{ f.field_type === 'text' ? '文本' : '复选框' }}</span>
+              <span class="type-tag">{{ f.field_type === 'text' ? $t('typeManager.text') : $t('typeManager.checkbox') }}</span>
               <span v-if="f.field_type === 'checkbox' && f.label" class="label-hint">{{ f.label }}</span>
             </div>
             <button
               class="icon-btn sm danger"
-              title="删除字段"
+              :title="$t('typeManager.delete')"
               @click.stop="deleteTarget = { kind: 'field', id: f.id, name: f.name }"
             >
               <TablerIcon name="dots" :size="14" />
@@ -180,17 +180,17 @@
               <input
                 v-model="fieldEditName"
                 class="name-input"
-                placeholder="字段名"
+                :placeholder="$t('typeManager.fieldName')"
               />
               <select v-model="fieldEditType" class="type-select">
-                <option value="text">文本</option>
-                <option value="checkbox">复选框</option>
+                <option value="text">{{ $t('typeManager.text') }}</option>
+                <option value="checkbox">{{ $t('typeManager.checkbox') }}</option>
               </select>
               <input
                 v-if="fieldEditType === 'checkbox'"
                 v-model="fieldEditLabel"
                 class="label-input"
-                placeholder="显示文字（可选）"
+                :placeholder="$t('typeManager.displayText')"
               />
               <button class="icon-btn sm primary" @click="saveEditField(f.id)">
                 <TablerIcon name="check" :size="14" />
@@ -207,7 +207,7 @@
       <div class="new-row">
         <template v-if="!showNewField">
           <button class="add-btn" @click="showNewField = true">
-            <TablerIcon name="plus" :size="14" /> 添加字段
+            <TablerIcon name="plus" :size="14" /> {{ $t('typeManager.addField') }}
           </button>
         </template>
         <template v-else>
@@ -216,19 +216,19 @@
             <input
               v-model="newFieldName"
               class="name-input"
-              placeholder="字段名"
+              :placeholder="$t('typeManager.fieldName')"
               @keydown.enter="addField"
               @keydown.escape="showNewField = false"
             />
             <select v-model="newFieldType" class="type-select">
-              <option value="text">文本</option>
-              <option value="checkbox">复选框</option>
+              <option value="text">{{ $t('typeManager.text') }}</option>
+              <option value="checkbox">{{ $t('typeManager.checkbox') }}</option>
             </select>
             <input
               v-if="newFieldType === 'checkbox'"
               v-model="newFieldLabel"
               class="label-input"
-              placeholder="显示文字（可选）"
+              :placeholder="$t('typeManager.displayText')"
             />
             <button class="icon-btn sm primary" @click="addField">
               <TablerIcon name="check" :size="14" />
@@ -245,12 +245,10 @@
     <Teleport to="body">
       <div v-if="deleteTarget" class="popover-overlay" @click.self="deleteTarget = null">
         <div class="popover">
-          <p class="popover-msg">
-            确定删除{{ deleteTarget.kind === 'type' ? '类别' : '字段' }} "{{ deleteTarget.name }}" 吗？
-          </p>
+          <p class="popover-msg">{{ deleteMessage }}</p>
           <div class="popover-acts">
-            <button class="sm" @click="deleteTarget = null">取消</button>
-            <button class="sm danger" @click="confirmDelete">确认删除</button>
+            <button class="sm" @click="deleteTarget = null">{{ $t('common.no') }}</button>
+            <button class="sm danger" @click="confirmDelete">{{ $t('common.confirm') }}</button>
           </div>
         </div>
       </div>
@@ -260,12 +258,14 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useTypeStore } from '@/stores/types'
 import { useToast } from '@/composables/toast'
 import TablerIcon from './TablerIcon.vue'
 import IconPicker from './IconPicker.vue'
 import type { ItemType, Field } from '@/types/bindings'
 
+const { t } = useI18n()
 const typeStore = useTypeStore()
 const toast = useToast()
 
@@ -313,6 +313,11 @@ const dragOverId = ref<number | null>(null)
 const currentType = computed(() =>
   typeStore.types.find(t => t.id === editingTypeId.value) ?? null
 )
+const deleteMessage = computed(() => {
+  if (!deleteTarget.value) return ''
+  const kind = deleteTarget.value.kind === 'type' ? t('typeManager.type') : t('typeManager.field')
+  return t('typeManager.confirmDelete', { kind, name: deleteTarget.value.name })
+})
 
 // ── Navigation ──
 function enterFieldView(typeId: number) {
@@ -346,10 +351,10 @@ async function saveEditType(id: number) {
   if (!name) return
   try {
     await typeStore.update(id, name, editIcon.value || 'file')
-    toast.success('类别已更新')
+    toast.success(t('typeManager.updated'))
     inlineEditId.value = null
   } catch (e) {
-    toast.error('更新失败: ' + e)
+    toast.error(t('typeManager.updateFailed') + ': ' + e)
   }
 }
 
@@ -358,12 +363,12 @@ async function createType() {
   if (!name) return
   try {
     await typeStore.create(name, newIcon.value || 'file')
-    toast.success('类别已创建')
+    toast.success(t('typeManager.created'))
     newName.value = ''
     newIcon.value = ''
     showNewType.value = false
   } catch (e) {
-    toast.error('创建失败: ' + e)
+    toast.error(t('typeManager.createFailed') + ': ' + e)
   }
 }
 
@@ -373,13 +378,13 @@ async function confirmDelete() {
   try {
     if (kind === 'type') {
       await typeStore.remove(id)
-      toast.success('类别已删除')
+      toast.success(t('typeManager.deleted'))
     } else {
       await typeStore.removeField(id)
-      toast.success('字段已删除')
+      toast.success(t('typeManager.fieldDeleted'))
     }
   } catch (e) {
-    toast.error('删除失败: ' + e)
+    toast.error(t('typeManager.deleteFailed') + ': ' + e)
   }
   deleteTarget.value = null
 }
@@ -398,10 +403,10 @@ async function saveCategory() {
   if (!name) return
   try {
     await typeStore.update(currentType.value.id, name, catIcon.value || currentType.value.icon)
-    toast.success('类别已更新')
+    toast.success(t('typeManager.updated'))
     editingCategory.value = false
   } catch (e) {
-    toast.error('更新失败: ' + e)
+    toast.error(t('typeManager.updateFailed') + ': ' + e)
   }
 }
 
@@ -429,10 +434,10 @@ async function saveEditField(fieldId: number) {
       fieldEditIcon.value || 'circle',
       fieldEditLabel.value || ''
     )
-    toast.success('字段已更新')
+    toast.success(t('typeManager.fieldUpdated'))
     editingFieldId.value = null
   } catch (e) {
-    toast.error('更新失败: ' + e)
+    toast.error(t('typeManager.updateFailed') + ': ' + e)
   }
 }
 
@@ -446,13 +451,13 @@ async function addField() {
       newFieldIcon.value || 'circle',
       newFieldLabel.value.trim() || undefined
     )
-    toast.success('字段已添加')
+    toast.success(t('typeManager.fieldAdded'))
     newFieldName.value = ''
     newFieldIcon.value = ''
     newFieldLabel.value = ''
     showNewField.value = false
   } catch (e) {
-    toast.error('添加失败: ' + e)
+    toast.error(t('typeManager.addFieldFailed') + ': ' + e)
   }
 }
 
@@ -490,7 +495,7 @@ async function onDrop(_e: DragEvent, _fieldId: number) {
     // Apply to store only after server confirms
     currentType.value.fields = reordered
   } catch (e) {
-    toast.error('排序失败: ' + e)
+    toast.error(t('typeManager.reorderFailed') + ': ' + e)
     // Local state unchanged — order snaps back
   }
   dragId.value = null
