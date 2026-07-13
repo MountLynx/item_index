@@ -1,6 +1,6 @@
 <template>
   <div class="app">
-    <EmptyState v-if="!repoStore.isOpen" @repo-opened="onRepoOpened" />
+    <RepoDashboard v-if="!repoStore.isOpen" @repo-opened="onRepoOpened" />
 
     <template v-else>
       <Titlebar @new-item="showNewItem = true" @open-type-manager="rightTab = 'types'" />
@@ -27,7 +27,7 @@ import { useTypeStore } from '@/stores/types'
 import { useGroupStore } from '@/stores/groups'
 import { useTagStore } from '@/stores/tags'
 import { useItemStore } from '@/stores/items'
-import EmptyState from '@/components/EmptyState.vue'
+import RepoDashboard from '@/components/RepoDashboard.vue'
 import Titlebar from '@/components/Titlebar.vue'
 import SettingsModal from '@/components/SettingsModal.vue'
 import Sidebar from '@/components/Sidebar.vue'
