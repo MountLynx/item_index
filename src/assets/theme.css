@@ -25,35 +25,38 @@
   --red-50:   #FEF2F2;
 
   /* Slots — Light */
-  --bg:             var(--white);
-  --surface:        var(--white);
-  --surface-hover:  var(--gray-50);
-  --surface-active: var(--gray-100);
+  --bg:             #FFFFFF;
+  --surface:        #FAFAFA;
+  --surface-hover:  #F0F0F0;
+  --surface-active: #E8E8E8;
 
-  --text:           var(--gray-900);
-  --text-secondary: var(--gray-500);
-  --text-muted:     var(--gray-300);
+  --text:           #555555;
+  --text-secondary: #999999;
+  --text-muted:     #C7C5C5;
+  --text-heading:   #333333;
 
-  --border:         var(--gray-200);
-  --border-light:   var(--gray-100);
+  --border:         #EEEEEE;
+  --border-light:   #F3F3F3;
+  --border-strong:  #DDDDDD;
 
-  --accent:         var(--blue-500);
-  --accent-hover:   var(--blue-600);
-  --accent-subtle:  var(--blue-50);
-  --accent-fg:      var(--white);
+  --accent:         #1A1C1E;
+  --accent-hover:   #333333;
+  --accent-subtle:  rgba(26,28,30,0.10);
+  --accent-fg:      #FFFFFF;
 
-  --danger:         var(--red-500);
-  --danger-hover:   var(--red-600);
-  --danger-subtle:  var(--red-50);
+  --danger:         #B42318;
+  --danger-hover:   #8B1A10;
+  --danger-subtle:  rgba(180,35,24,0.08);
+
+  --link:           #2F56C6;
 
   --success:        #22C55E;
   --warning:        #F59E0B;
 
-  /* Shadows — minimal, only when necessary */
-  --shadow-xs: 0 1px 2px rgba(0,0,0,0.04);
+  /* Shadows — only on floating/overlay surfaces */
   --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
-  --shadow-md: 0 4px 16px rgba(0,0,0,0.08);
-  --shadow-lg: 0 8px 32px rgba(0,0,0,0.10);
+  --shadow-md: 0 18px 52px rgba(0,0,0,0.12);
+  --shadow-lg: 0 20px 64px rgba(0,0,0,0.16);
 
   /* Layout */
   --sidebar-w: 240px;
@@ -62,7 +65,7 @@
   --status-h:  28px;
 
   /* Type */
-  --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   --font-mono: "JetBrains Mono", "Cascadia Code", "Consolas", monospace;
   --fs-xs:   0.6875rem;
   --fs-sm:   0.8125rem;
@@ -72,9 +75,11 @@
   --fs-2xl:  1.5rem;
   --leading: 1.5;
   --fw-normal:   400;
-  --fw-medium:   500;
-  --fw-semibold: 600;
-  --fw-bold:     700;
+  --fw-tertiary: 520;
+  --fw-semibold: 560;
+  --fw-medium:   620;
+  --fw-emphasis: 650;
+  --fw-bold:     760;
 
   /* Radius */
   --r-sm:  4px;
@@ -88,30 +93,33 @@
   --normal:180ms;
   --slow:  280ms;
   --ease:  cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-fast: 150ms ease-out;
 }
 
 /* Dark */
 .dark {
-  --bg:             #0A0A0A;
-  --surface:        #0A0A0A;
-  --surface-hover:  #171717;
-  --surface-active: #1F1F1F;
-  --text:           #FAFAFA;
-  --text-secondary: #737373;
-  --text-muted:     #404040;
-  --border:         #262626;
-  --border-light:   #1A1A1A;
-  --accent:         #60A5FA;
-  --accent-hover:   #3B82F6;
-  --accent-subtle:  rgba(59,130,246,0.12);
-  --accent-fg:      #0A0A0A;
-  --danger:         #F87171;
-  --danger-hover:   #EF4444;
-  --danger-subtle:  rgba(239,68,68,0.12);
-  --shadow-xs: 0 1px 2px rgba(0,0,0,0.20);
-  --shadow-sm: 0 1px 3px rgba(0,0,0,0.30);
-  --shadow-md: 0 4px 16px rgba(0,0,0,0.40);
-  --shadow-lg: 0 8px 32px rgba(0,0,0,0.50);
+  --bg:             #1E1E1E;
+  --surface:        #252525;
+  --surface-hover:  #2E2E2E;
+  --surface-active: #353535;
+  --text:           #E1E1E1;
+  --text-heading:   #F4F4F5;
+  --text-secondary: #999999;
+  --text-muted:     #555555;
+  --border:         #333333;
+  --border-light:   #2A2A2A;
+  --border-strong:  #444444;
+  --accent:         #F4F4F5;
+  --accent-hover:   #CCCCCC;
+  --accent-subtle:  rgba(244,244,245,0.10);
+  --accent-fg:      #1E1E1E;
+  --danger:         #DA4A3F;
+  --danger-hover:   #C0392B;
+  --danger-subtle:  rgba(218,74,63,0.12);
+  --link:           #6B8FE8;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.20);
+  --shadow-md: 0 18px 52px rgba(0,0,0,0.40), 0 0 0 1px rgba(255,255,255,0.035);
+  --shadow-lg: 0 20px 64px rgba(0,0,0,0.50), 0 0 0 1px rgba(255,255,255,0.035);
 }
 
 /* ═══════ Reset & Base ═══════ */
@@ -158,10 +166,18 @@ input::placeholder { color: var(--gray-300); }
 
 select { cursor: pointer; appearance: none; background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23737373' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 8px center; padding-right: 28px; }
 
-::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar { width: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--gray-200); border-radius: 3px; }
-.dark ::-webkit-scrollbar-thumb { background: var(--gray-700); }
+::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  background-clip: content-box;
+  border-radius: 999px;
+  background-color: rgba(153,153,153,0.44);
+}
+::-webkit-scrollbar-thumb:hover { background-color: rgba(120,120,120,0.50); }
+::-webkit-scrollbar-thumb:active { background-color: var(--accent); }
+.dark ::-webkit-scrollbar-thumb { background-color: rgba(120,120,120,0.44); }
+.dark ::-webkit-scrollbar-thumb:hover { background-color: rgba(160,160,160,0.50); }
 
 ::selection { background: var(--accent-subtle); }
 
