@@ -178,9 +178,10 @@ function close(): void {
 watch([localMode, localAccentColor, localFontSize], () => {
   themeStore.mode = localMode.value
   themeStore.apply()
-  document.documentElement.style.setProperty('--accent', localAccentColor.value)
-  const fsMap: Record<string, string> = { small: '0.75rem', medium: '0.875rem', large: '0.9375rem' }
-  document.documentElement.style.setProperty('--fs-base', fsMap[localFontSize.value])
+  // Temporarily set store state for live preview (will be restored on cancel)
+  settingsStore.accentColor = localAccentColor.value
+  settingsStore.fontSize = localFontSize.value
+  settingsStore.applyTheme()
 })
 
 function applyPreset(): void {

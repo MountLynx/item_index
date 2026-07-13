@@ -120,23 +120,19 @@ export const useSettingsStore = defineStore('settings', () => {
 
   function applyTheme(): void {
     // Apply mode (.dark class) via themeStore — handled externally
-    const root = document.documentElement
 
-    // Apply accent color as CSS variable override
-    root.style.setProperty('--accent', accentColor.value)
-
-    // Apply font size
-    root.style.setProperty('--fs-base', FONT_SIZE_MAP[fontSize.value])
-    root.style.setProperty('--fs-sm', fontSize.value === 'small' ? '0.75rem' : '0.8125rem')
-
-    // Inject/update theme-override style tag
+    // Inject/update theme-override style tag with all CSS variable overrides
     let el = document.getElementById('theme-override') as HTMLStyleElement | null
     if (!el) {
       el = document.createElement('style')
       el.id = 'theme-override'
       document.head.appendChild(el)
     }
-    el.textContent = `:root { --accent: ${accentColor.value}; }`
+    el.textContent = `:root {
+  --accent: ${accentColor.value};
+  --fs-base: ${FONT_SIZE_MAP[fontSize.value]};
+  --fs-sm: ${fontSize.value === 'small' ? '0.75rem' : '0.8125rem'};
+}`
 
     // Inject/update theme-preset style tag
     applyPresetCSS()
