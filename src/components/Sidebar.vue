@@ -3,8 +3,8 @@
     <div class="sec">
       <div class="sec-hd" @click="clearGroup">
         <TablerIcon name="folder" :size="14" />
-        <span>分组</span>
-        <span v-if="gid !== null" class="clear-hint">← 显示全部</span>
+        <span>{{ $t('sidebar.groups') }}</span>
+        <span v-if="gid !== null" class="clear-hint">{{ $t('sidebar.showAll') }}</span>
       </div>
       <GroupTree :selected-id="gid" @select="onGroupSelect" />
     </div>
@@ -12,8 +12,8 @@
     <div class="sec">
       <div class="sec-hd" @click="clearTag">
         <TablerIcon name="tag" :size="14" />
-        <span>标签</span>
-        <span v-if="tid !== null" class="clear-hint">← 显示全部</span>
+        <span>{{ $t('sidebar.tags') }}</span>
+        <span v-if="tid !== null" class="clear-hint">{{ $t('sidebar.showAll') }}</span>
       </div>
       <TagList :selected-id="tid" @select="onTagSelect" />
     </div>

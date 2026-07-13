@@ -28,9 +28,18 @@
 
           <!-- Right content -->
           <div class="settings-content">
-            <!-- General tab (placeholder) -->
+            <!-- General tab -->
             <div v-if="activeTab === 'general'" class="tab-panel">
-              <p class="placeholder-text">更多设置即将推出</p>
+              <div class="setting-section">
+                <div class="setting-row">
+                  <label>{{ $t('settings.language') }}</label>
+                  <select v-model="localLocale" class="lang-select">
+                    <option value="zh-CN">中文</option>
+                    <option value="en">English</option>
+                  </select>
+                </div>
+              </div>
+              <p class="placeholder-text">{{ $t('settings.moreSoon') }}</p>
             </div>
 
             <!-- Theme tab -->
@@ -142,12 +151,14 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useSettingsStore, parseCSSVariables } from '@/stores/settings'
 import { useThemeStore } from '@/stores/theme'
 import TablerIcon from './TablerIcon.vue'
 
 const settingsStore = useSettingsStore()
 const themeStore = useThemeStore()
+const { locale: i18nLocale } = useI18n()
 
 const tabs = [
   { id: 'general', icon: 'settings', label: '通用' },
@@ -167,6 +178,7 @@ const localCSS = ref('')
 const localBgColor = ref('#FFFFFF')
 const localTextColor = ref('#333333')
 const localTextColorAuto = ref(true)
+const localLocale = ref(settingsStore.locale)
 const selectedPresetId = ref<string | null>(null)
 
 // Snapshot for cancel restore
@@ -179,6 +191,7 @@ let snapshot: {
   fontSize: 'small' | 'medium' | 'large'
   presetCSS: string
   activePresetId: string | null
+  locale: string
 } | null = null
 
 function open(): void {
@@ -192,6 +205,7 @@ function open(): void {
     fontSize: settingsStore.fontSize,
     presetCSS: settingsStore.presetCSS,
     activePresetId: settingsStore.activePresetId,
+    locale: settingsStore.locale,
   }
 
   // Init local state from store
@@ -202,6 +216,7 @@ function open(): void {
   localTextColorAuto.value = settingsStore.textColorAuto
   localFontSize.value = settingsStore.fontSize
   localCSS.value = settingsStore.presetCSS
+  localLocale.value = settingsStore.locale
   selectedPresetId.value = settingsStore.activePresetId
 
   visible.value = true
@@ -222,6 +237,10 @@ watch([localMode, localAccentColor, localBgColor, localTextColor, localTextColor
   settingsStore.textColorAuto = localTextColorAuto.value
   settingsStore.fontSize = localFontSize.value
   settingsStore.applyTheme()
+})
+
+watch(localLocale, (val) => {
+  i18nLocale.value = val
 })
 
 function applyPreset(): void {
@@ -302,6 +321,7 @@ async function onSave(): Promise<void> {
   // Then apply editor content — overrides whatever setActivePreset did to presetCSS
   settingsStore.presetCSS = localCSS.value
   settingsStore.applyTheme()
+  settingsStore.setLocale(localLocale.value)
 
   close()
 }
@@ -319,6 +339,8 @@ function onCancel(): void {
     settingsStore.fontSize = snapshot.fontSize
     settingsStore.presetCSS = snapshot.presetCSS
     settingsStore.activePresetId = snapshot.activePresetId
+    settingsStore.locale = snapshot.locale
+    i18nLocale.value = snapshot.locale
     settingsStore.applyTheme()
   }
   close()
@@ -449,6 +471,12 @@ defineExpose({ open, close })
 }
 .preset-select {
   flex: 1; font-size: var(--fs-sm);
+}
+.lang-select {
+  font-size: var(--fs-sm); padding: 4px 8px;
+  border: 1px solid var(--border); border-radius: var(--r-sm);
+  background: var(--surface); color: var(--text);
+  cursor: pointer;
 }
 .sm { font-size: var(--fs-xs); height: 28px; }
 .danger { color: var(--danger); }

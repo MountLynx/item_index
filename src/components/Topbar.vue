@@ -6,12 +6,12 @@
     </div>
     <div class="actions">
       <button class="primary" @click="$emit('newItem')">
-        <TablerIcon name="plus" :size="16" /> 新建条目
+        <TablerIcon name="plus" :size="16" /> {{ $t('topbar.newItem') }}
       </button>
-      <button class="icon-btn" @click="settingsRef?.open()" title="设置">
+      <button class="icon-btn" @click="settingsRef?.open()" :title="$t('common.settings')">
         <TablerIcon name="settings" :size="18" />
       </button>
-      <button class="icon-btn" @click="$emit('openTypeManager')" title="类别管理">
+      <button class="icon-btn" @click="$emit('openTypeManager')" :title="$t('common.category')">
         <TablerIcon name="category" :size="18" />
       </button>
     </div>

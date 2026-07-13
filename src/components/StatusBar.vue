@@ -1,8 +1,8 @@
 <template>
   <footer class="sb">
-    <span class="path text-muted">{{ repoStore.repoPath || '未打开仓库' }}</span>
+    <span class="path text-muted">{{ repoStore.repoPath || 'Index' }}</span>
     <div class="right">
-      <span>{{ repoStore.itemCount }} 条目</span>
+      <span>{{ repoStore.itemCount }}{{ $t('statusBar.items') }}</span>
       <span class="dot" />
       <span>就绪</span>
     </div>

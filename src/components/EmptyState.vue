@@ -2,17 +2,17 @@
   <div class="welcome">
     <div class="card">
       <TablerIcon name="database" :size="40" :stroke="1.5" class="logo" />
-      <h1>Index</h1>
-      <p>本地优先的对象管理器</p>
+      <h1>{{ $t('emptyState.title') }}</h1>
+      <p>{{ $t('emptyState.tagline') }}</p>
       <div class="btns">
-        <button class="primary" @click="openRepo"><TablerIcon name="folder-open" :size="17" /> 打开仓库</button>
-        <button @click="showCreate = !showCreate"><TablerIcon name="plus" :size="17" /> 创建仓库</button>
+        <button class="primary" @click="openRepo"><TablerIcon name="folder-open" :size="17" /> {{ $t('emptyState.openRepo') }}</button>
+        <button @click="showCreate = !showCreate"><TablerIcon name="plus" :size="17" /> {{ $t('emptyState.createRepo') }}</button>
       </div>
       <div v-if="showCreate" class="create">
         <input v-model="path" placeholder="仓库路径，如 C:\Users\me\MyIndex" @keydown.enter="doCreate" />
         <div class="create-btns">
-          <button class="ghost" @click="showCreate = false">取消</button>
-          <button class="primary" @click="doCreate">创建</button>
+          <button class="ghost" @click="showCreate = false">{{ $t('itemDialog.cancel') }}</button>
+          <button class="primary" @click="doCreate">{{ $t('itemDialog.create') }}</button>
         </div>
       </div>
     </div>

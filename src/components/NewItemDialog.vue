@@ -2,20 +2,20 @@
   <Teleport to="body">
     <div class="overlay" @click.self="$emit('close')">
       <div class="modal">
-        <h3>新建条目</h3>
+        <h3>{{ $t('itemDialog.title') }}</h3>
         <div class="fg">
-          <label>类型</label>
+          <label>{{ $t('itemDialog.type') }}</label>
           <select v-model="typeId">
             <option v-for="t in typeStore.types" :key="t.id" :value="t.id">{{ t.name }}</option>
           </select>
         </div>
         <div class="fg">
-          <label>名称</label>
-          <input v-model="name" @keydown.enter="create" placeholder="条目名称" autofocus />
+          <label>{{ $t('itemDialog.name') }}</label>
+          <input v-model="name" @keydown.enter="create" :placeholder="$t('itemDialog.name')" autofocus />
         </div>
         <div class="acts">
-          <button class="ghost" @click="$emit('close')">取消</button>
-          <button class="primary" @click="create" :disabled="!name.trim()">创建</button>
+          <button class="ghost" @click="$emit('close')">{{ $t('itemDialog.cancel') }}</button>
+          <button class="primary" @click="create" :disabled="!name.trim()">{{ $t('itemDialog.create') }}</button>
         </div>
       </div>
     </div>
