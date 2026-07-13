@@ -3,7 +3,7 @@
     <EmptyState v-if="!repoStore.isOpen" @repo-opened="onRepoOpened" />
 
     <template v-else>
-      <Topbar @new-item="showNewItem = true" @open-type-manager="rightTab = 'types'" />
+      <Titlebar @new-item="showNewItem = true" @open-type-manager="rightTab = 'types'" />
       <div class="main">
         <Sidebar />
         <CenterList @new-item="showNewItem = true" />
@@ -14,11 +14,12 @@
 
     <NewItemDialog v-if="showNewItem" @close="showNewItem = false" />
     <Toast ref="toastRef" />
+    <SettingsModal ref="settingsRef" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { provide, ref, onMounted } from 'vue'
 import { useRepoStore } from '@/stores/repo'
 import { useThemeStore } from '@/stores/theme'
 import { useSettingsStore } from '@/stores/settings'
@@ -27,7 +28,8 @@ import { useGroupStore } from '@/stores/groups'
 import { useTagStore } from '@/stores/tags'
 import { useItemStore } from '@/stores/items'
 import EmptyState from '@/components/EmptyState.vue'
-import Topbar from '@/components/Topbar.vue'
+import Titlebar from '@/components/Titlebar.vue'
+import SettingsModal from '@/components/SettingsModal.vue'
 import Sidebar from '@/components/Sidebar.vue'
 import CenterList from '@/components/CenterList.vue'
 import RightPanel from '@/components/RightPanel.vue'
@@ -46,6 +48,8 @@ const itemStore = useItemStore()
 const showNewItem = ref(false)
 const rightTab = ref<'detail' | 'types'>('detail')
 const toastRef = ref<InstanceType<typeof Toast> | null>(null)
+const settingsRef = ref<InstanceType<typeof SettingsModal> | null>(null)
+provide('openSettings', () => settingsRef.value?.open())
 
 async function onRepoOpened() {
   await Promise.all([
