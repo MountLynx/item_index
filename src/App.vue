@@ -36,6 +36,7 @@ import Toast from '@/components/Toast.vue'
 
 const repoStore = useRepoStore()
 const themeStore = useThemeStore()
+themeStore.init()
 const typeStore = useTypeStore()
 const groupStore = useGroupStore()
 const tagStore = useTagStore()
