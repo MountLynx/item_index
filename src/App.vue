@@ -1,5 +1,5 @@
 <template>
-  <div class="app" :class="{ dark: themeStore.mode === 'dark' }">
+  <div class="app">
     <EmptyState v-if="!repoStore.isOpen" @repo-opened="onRepoOpened" />
 
     <template v-else>
@@ -18,9 +18,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRepoStore } from '@/stores/repo'
 import { useThemeStore } from '@/stores/theme'
+import { useSettingsStore } from '@/stores/settings'
 import { useTypeStore } from '@/stores/types'
 import { useGroupStore } from '@/stores/groups'
 import { useTagStore } from '@/stores/tags'
@@ -36,7 +37,7 @@ import Toast from '@/components/Toast.vue'
 
 const repoStore = useRepoStore()
 const themeStore = useThemeStore()
-themeStore.init()
+const settingsStore = useSettingsStore()
 const typeStore = useTypeStore()
 const groupStore = useGroupStore()
 const tagStore = useTagStore()
@@ -53,7 +54,14 @@ async function onRepoOpened() {
     tagStore.fetchAll(),
     itemStore.fetchList(),
   ])
+  await settingsStore.loadActivePresetFromRepo()
+  settingsStore.applyTheme()
 }
+
+onMounted(() => {
+  settingsStore.load()
+  themeStore.init()
+})
 </script>
 
 <style>
