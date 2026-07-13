@@ -4,7 +4,7 @@
     <div class="right">
       <span>{{ repoStore.itemCount }}{{ $t('statusBar.items') }}</span>
       <span class="dot" />
-      <span>就绪</span>
+      <span>{{ $t('statusBar.ready') }}</span>
     </div>
   </footer>
 </template>

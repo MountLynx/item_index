@@ -16,6 +16,8 @@ export default {
     empty: 'No items', newItem: 'New Item', deleteItem: 'Delete Item',
     justNow: 'Just now', minAgo: 'm ago', hourAgo: 'h ago',
     dayAgo: 'd ago', monthAgo: 'mo ago', yesterday: 'Yesterday',
+    confirmDelete: 'Delete "{name}"?',
+    dragToGroup: 'Drag to group',
   },
   sidebar: {
     groups: 'Groups', tags: 'Tags', showAll: '← Show All',
@@ -45,6 +47,10 @@ export default {
     fieldAdded: 'Field added', fieldDeleted: 'Field deleted', fieldUpdated: 'Field updated',
     reorderFailed: 'Reorder failed',
     actionFailed: 'Failed',
+    updateFailed: 'Update failed',
+    createFailed: 'Create failed',
+    deleteFailed: 'Delete failed',
+    addFieldFailed: 'Field add failed',
   },
   itemDialog: {
     title: 'New Item', name: 'Item Name',
@@ -61,24 +67,37 @@ export default {
     openFailed: 'Cannot open repository',
   },
   statusBar: {
-    items: ' items', path: 'Path',
+    items: ' items', path: 'Path', ready: 'Ready',
   },
   propertiesForm: {
     noCustomFields: 'This type has no custom fields',
     fieldUpdateFailed: 'Field update failed',
   },
   fileTree: {
-    title: 'Files',
+    title: 'Attachments',
     newFolder: 'New Folder',
+    loading: 'Loading...',
+    selectItem: 'Select item to view files',
+    dragHere: 'Drop files here',
+    actionPrompt: 'Actions: (R)ename (D)elete (N)ew folder (dir only)',
+    confirmDeleteFile: 'Delete "{name}"?',
+    folderNamePrompt: 'Folder name:',
   },
   iconPicker: {
-    search: 'Search icons...', noResults: 'No matching icons',
+    search: 'Search icons...',
+    noResults: 'No matches — enter emoji directly',
+    loading: 'Loading icons...',
+    loadError: 'Icon load failed',
+    retry: 'Retry',
   },
   groupTree: {
     newGroup: 'New Group', groupName: 'Group Name',
+    newSubGroup: 'New Subgroup',
+    confirmDeleteGroup: 'Delete group "{name}" and its children?',
+    addedToGroup: 'Added to group "{name}"',
   },
   tagList: {
-    newTag: '+ New Tag', tagName: 'Tag Name',
+    newTag: 'New Tag', tagName: 'Tag Name',
   },
   toast: {
     createSuccess: 'Created successfully',

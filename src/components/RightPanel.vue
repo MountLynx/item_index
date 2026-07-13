@@ -5,7 +5,7 @@
       <aside v-if="activeTab === 'detail'" class="rp">
         <div v-if="!detail" class="empty">
           <TablerIcon name="arrow-left" :size="28" :stroke="1" />
-          <p>选择条目查看详情</p>
+          <p>{{ $t('rightPanel.selectItem') }}</p>
         </div>
         <template v-else>
           <div class="hd">
@@ -13,45 +13,45 @@
             <div class="id font-mono">{{ detail.item.id }}</div>
           </div>
 
-          <div class="sec"><div class="lbl">属性</div><PropertiesForm :detail="detail" /></div>
+          <div class="sec"><div class="lbl">{{ $t('rightPanel.properties') }}</div><PropertiesForm :detail="detail" /></div>
           <div class="sep" />
 
           <div class="sec">
-            <div class="lbl">分组</div>
+            <div class="lbl">{{ $t('rightPanel.groups') }}</div>
             <div class="chips">
               <span v-for="g in detail.groups" :key="g.id" class="chip" @click="removeGroup(g.id)">
                 <TablerIcon name="folder" :size="13" />{{ g.name }} <TablerIcon name="x" :size="11" />
               </span>
-              <span v-if="detail.groups.length === 0 && !addingGroup" class="text-muted text-xs">未分组</span>
+              <span v-if="detail.groups.length === 0 && !addingGroup" class="text-muted text-xs">{{ $t('rightPanel.ungrouped') }}</span>
             </div>
-            <div v-if="!addingGroup" class="add-btn" @click="addingGroup = true">+ 添加分组</div>
+            <div v-if="!addingGroup" class="add-btn" @click="addingGroup = true">{{ $t('rightPanel.addGroup') }}</div>
             <div v-else class="add-row">
               <select v-model="newGroupId">
-                <option :value="null" disabled>选择分组...</option>
+                <option :value="null" disabled>{{ $t('rightPanel.selectGroup') }}</option>
                 <option v-for="g in availableGroups" :key="g.id" :value="g.id">{{ g.name }}</option>
               </select>
-              <button class="primary sm" @click="addGroup" :disabled="!newGroupId">确定</button>
-              <button class="ghost sm" @click="addingGroup = false">取消</button>
+              <button class="primary sm" @click="addGroup" :disabled="!newGroupId">{{ $t('rightPanel.confirm') }}</button>
+              <button class="ghost sm" @click="addingGroup = false">{{ $t('rightPanel.cancel') }}</button>
             </div>
           </div>
           <div class="sep" />
 
           <div class="sec">
-            <div class="lbl">标签</div>
+            <div class="lbl">{{ $t('rightPanel.tags') }}</div>
             <div class="chips">
               <span v-for="t in detail.tags" :key="t.id" class="chip tag" @click="removeTag(t.id)">
                 <TablerIcon name="hash" :size="13" />{{ t.name }} <TablerIcon name="x" :size="11" />
               </span>
-              <span v-if="detail.tags.length === 0 && !addingTag" class="text-muted text-xs">无标签</span>
+              <span v-if="detail.tags.length === 0 && !addingTag" class="text-muted text-xs">{{ $t('rightPanel.noTags') }}</span>
             </div>
-            <div v-if="!addingTag" class="add-btn" @click="addingTag = true">+ 添加标签</div>
+            <div v-if="!addingTag" class="add-btn" @click="addingTag = true">{{ $t('rightPanel.addTag') }}</div>
             <div v-else class="add-row">
               <select v-model="newTagId">
-                <option :value="null" disabled>选择标签...</option>
+                <option :value="null" disabled>{{ $t('rightPanel.selectTag') }}</option>
                 <option v-for="t in availableTags" :key="t.id" :value="t.id">{{ t.name }}</option>
               </select>
-              <button class="primary sm" @click="addTag" :disabled="!newTagId">确定</button>
-              <button class="ghost sm" @click="addingTag = false">取消</button>
+              <button class="primary sm" @click="addTag" :disabled="!newTagId">{{ $t('rightPanel.confirm') }}</button>
+              <button class="ghost sm" @click="addingTag = false">{{ $t('rightPanel.cancel') }}</button>
             </div>
           </div>
           <div class="sep" />
@@ -76,6 +76,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useItemStore } from '@/stores/items'
 import { useGroupStore } from '@/stores/groups'
 import { useTagStore } from '@/stores/tags'
@@ -85,6 +86,8 @@ import TablerIcon from './TablerIcon.vue'
 import ActivityBar from './ActivityBar.vue'
 import TypeManager from './TypeManager.vue'
 
+const { t } = useI18n()
+
 defineProps<{
   activeTab: 'detail' | 'types'
 }>()
@@ -93,10 +96,10 @@ defineEmits<{
   'update:activeTab': [tab: string]
 }>()
 
-const tabs = [
-  { id: 'detail', icon: 'file-description', title: '条目详情' },
-  { id: 'types', icon: 'category', title: '类别管理' },
-]
+const tabs = computed(() => [
+  { id: 'detail', icon: 'file-description', title: t('rightPanel.detail') },
+  { id: 'types', icon: 'category', title: t('common.category') },
+])
 
 const itemStore = useItemStore()
 const groupStore = useGroupStore()

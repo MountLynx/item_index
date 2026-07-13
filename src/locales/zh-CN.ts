@@ -16,6 +16,8 @@ export default {
     empty: '暂无条目', newItem: '新建条目', deleteItem: '删除条目',
     justNow: '刚刚', minAgo: ' 分钟前', hourAgo: ' 小时前',
     dayAgo: ' 天前', monthAgo: ' 月前', yesterday: '昨天',
+    confirmDelete: '确定删除"{name}"？',
+    dragToGroup: '拖拽到分组',
   },
   sidebar: {
     groups: '分组', tags: '标签', showAll: '← 显示全部',
@@ -45,6 +47,10 @@ export default {
     fieldAdded: '字段已添加', fieldDeleted: '字段已删除', fieldUpdated: '字段已更新',
     reorderFailed: '排序失败',
     actionFailed: '失败',
+    updateFailed: '更新失败',
+    createFailed: '创建失败',
+    deleteFailed: '删除失败',
+    addFieldFailed: '添加失败',
   },
   itemDialog: {
     title: '新建条目', name: '条目名称',
@@ -61,24 +67,37 @@ export default {
     openFailed: '无法打开仓库',
   },
   statusBar: {
-    items: ' 个条目', path: '路径',
+    items: ' 个条目', path: '路径', ready: '就绪',
   },
   propertiesForm: {
     noCustomFields: '此类型无自定义属性',
     fieldUpdateFailed: '字段更新失败',
   },
   fileTree: {
-    title: '文件',
+    title: '附件',
     newFolder: '新建文件夹',
+    loading: '加载中...',
+    selectItem: '选择条目查看附件',
+    dragHere: '拖入文件',
+    actionPrompt: '操作: (R)重命名 (D)删除 (N)新建文件夹(仅目录)',
+    confirmDeleteFile: '删除"{name}"？',
+    folderNamePrompt: '文件夹名:',
   },
   iconPicker: {
-    search: '搜索图标...', noResults: '无匹配图标',
+    search: '搜索图标...',
+    noResults: '无匹配，可输入 emoji 直接使用',
+    loading: '加载中...',
+    loadError: '图标加载失败',
+    retry: '重试',
   },
   groupTree: {
     newGroup: '新建分组', groupName: '分组名称',
+    newSubGroup: '新建子分组',
+    confirmDeleteGroup: '确定删除分组"{name}"及其子分组？',
+    addedToGroup: '已添加到分组"{name}"',
   },
   tagList: {
-    newTag: '+ 新建标签', tagName: '标签名称',
+    newTag: '新建标签', tagName: '标签名称',
   },
   toast: {
     createSuccess: '创建成功',

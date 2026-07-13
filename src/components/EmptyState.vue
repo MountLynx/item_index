@@ -9,7 +9,7 @@
         <button @click="showCreate = !showCreate"><TablerIcon name="plus" :size="17" /> {{ $t('emptyState.createRepo') }}</button>
       </div>
       <div v-if="showCreate" class="create">
-        <input v-model="path" placeholder="仓库路径，如 C:\Users\me\MyIndex" @keydown.enter="doCreate" />
+        <input v-model="path" :placeholder="$t('emptyState.selectFolder')" @keydown.enter="doCreate" />
         <div class="create-btns">
           <button class="ghost" @click="showCreate = false">{{ $t('itemDialog.cancel') }}</button>
           <button class="primary" @click="doCreate">{{ $t('itemDialog.create') }}</button>
@@ -21,12 +21,15 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRepoStore } from '@/stores/repo'
 import { useTypeStore } from '@/stores/types'
 import { useGroupStore } from '@/stores/groups'
 import { useTagStore } from '@/stores/tags'
 import { useItemStore } from '@/stores/items'
 import TablerIcon from './TablerIcon.vue'
+
+const { t } = useI18n()
 
 const repoStore = useRepoStore()
 const typeStore = useTypeStore()
@@ -37,7 +40,7 @@ const showCreate = ref(false)
 const path = ref('')
 const emit = defineEmits<{ repoOpened: [] }>()
 
-async function openRepo() { const p = prompt('输入仓库路径:'); if (p) { await repoStore.openRepo(p); await load(); emit('repoOpened') } }
+async function openRepo() { const p = prompt(t('emptyState.selectFolder')); if (p) { await repoStore.openRepo(p); await load(); emit('repoOpened') } }
 async function doCreate() { if (path.value) { await repoStore.createRepo(path.value); await load(); emit('repoOpened') } }
 async function load() { await Promise.all([typeStore.fetchAll(), groupStore.fetchAll(), tagStore.fetchAll(), itemStore.fetchList()]) }
 </script>

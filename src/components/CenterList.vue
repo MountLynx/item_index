@@ -2,13 +2,13 @@
   <div class="cl">
     <div v-if="items.length === 0" class="empty" @click="$emit('newItem')">
       <TablerIcon name="clipboard" :size="40" :stroke="1" class="empty-icon" />
-      <p class="empty-text">暂无条目</p>
-      <button class="primary">新建条目</button>
+      <p class="empty-text">{{ $t('centerList.empty') }}</p>
+      <button class="primary">{{ $t('centerList.newItem') }}</button>
     </div>
     <div v-else class="list">
       <div v-for="item in items" :key="item.id" class="row" :class="{ sel: item.id === selectedId }"
         @click="selectItem(item.id)" @contextmenu.prevent="showMenu($event, item)">
-        <span class="grip" draggable="true" @dragstart="onDragStart($event, item.id)" @click.stop title="拖拽到分组">
+        <span class="grip" draggable="true" @dragstart="onDragStart($event, item.id)" @click.stop :title="$t('centerList.dragToGroup')">
           <TablerIcon name="grip-vertical" :size="14" />
         </span>
         <TablerIcon :name="typeIcon(item.type_id)" :size="19" />
@@ -21,7 +21,7 @@
     <Teleport to="body">
       <div v-if="menu.show" class="menu-overlay" @click="menu.show = false" @contextmenu.prevent="menu.show = false">
         <div class="menu" :style="{ left: menu.x + 'px', top: menu.y + 'px' }">
-          <button class="menu-item" @click="deleteItem"><TablerIcon name="trash" :size="15" /> 删除条目</button>
+          <button class="menu-item" @click="deleteItem"><TablerIcon name="trash" :size="15" /> {{ $t('centerList.deleteItem') }}</button>
         </div>
       </div>
     </Teleport>
@@ -30,11 +30,13 @@
 
 <script setup lang="ts">
 import { computed, reactive } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useItemStore } from '@/stores/items'
 import { useTypeStore } from '@/stores/types'
 import type { Item } from '@/types/bindings'
 import TablerIcon from './TablerIcon.vue'
 
+const { t } = useI18n()
 const itemStore = useItemStore()
 const typeStore = useTypeStore()
 const items = computed(() => itemStore.items)
@@ -47,10 +49,10 @@ function typeIcon(id: number) { return typeStore.getTypeById(id)?.icon || 'file'
 function typeName(id: number) { return typeStore.getTypeById(id)?.name || '?' }
 function ago(iso: string): string {
   const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000)
-  if (m < 1) return '刚刚'; if (m < 60) return `${m} 分钟前`
-  const h = Math.floor(m / 60); if (h < 24) return `${h} 小时前`
-  const d = Math.floor(h / 24); if (d === 1) return '昨天'; if (d < 30) return `${d} 天前`
-  return `${Math.floor(d / 30)} 月前`
+  if (m < 1) return t('centerList.justNow'); if (m < 60) return `${m}${t('centerList.minAgo')}`
+  const h = Math.floor(m / 60); if (h < 24) return `${h}${t('centerList.hourAgo')}`
+  const d = Math.floor(h / 24); if (d === 1) return t('centerList.yesterday'); if (d < 30) return `${d}${t('centerList.dayAgo')}`
+  return `${Math.floor(d / 30)}${t('centerList.monthAgo')}`
 }
 
 function onDragStart(e: DragEvent, id: string) {
@@ -60,7 +62,7 @@ function onDragStart(e: DragEvent, id: string) {
 
 async function selectItem(id: string) { await itemStore.select(id); menu.show = false }
 function showMenu(e: MouseEvent, item: Item) { menu.show = true; menu.x = e.clientX; menu.y = e.clientY; menu.item = item }
-async function deleteItem() { if (menu.item && confirm(`确定删除"${menu.item.name}"？`)) await itemStore.remove(menu.item.id); menu.show = false }
+async function deleteItem() { if (menu.item && confirm(t('centerList.confirmDelete', { name: menu.item.name }))) await itemStore.remove(menu.item.id); menu.show = false }
 </script>
 
 <style scoped>
