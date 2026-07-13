@@ -8,23 +8,25 @@
       <button class="primary" @click="$emit('newItem')">
         <TablerIcon name="plus" :size="16" /> 新建条目
       </button>
-      <button class="icon-btn" @click="themeStore.toggle()" :title="themeStore.mode === 'light' ? '深色模式' : '浅色模式'">
-        <TablerIcon :name="themeStore.mode === 'light' ? 'moon' : 'sun'" :size="18" />
+      <button class="icon-btn" @click="settingsRef?.open()" title="设置">
+        <TablerIcon name="settings" :size="18" />
       </button>
       <button class="icon-btn" @click="$emit('openTypeManager')" title="类别管理">
         <TablerIcon name="category" :size="18" />
       </button>
     </div>
+    <SettingsModal ref="settingsRef" />
   </header>
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue'
 import { useRepoStore } from '@/stores/repo'
-import { useThemeStore } from '@/stores/theme'
 import TablerIcon from './TablerIcon.vue'
+import SettingsModal from './SettingsModal.vue'
 
 const repoStore = useRepoStore()
-const themeStore = useThemeStore()
+const settingsRef = ref<InstanceType<typeof SettingsModal> | null>(null)
 
 function basename(p: string): string { return p.split(/[/\\]/).pop() || p }
 defineEmits<{ newItem: []; openTypeManager: [] }>()
@@ -33,7 +35,7 @@ defineEmits<{ newItem: []; openTypeManager: [] }>()
 <style scoped>
 .topbar {
   height: var(--topbar-h); display: flex; align-items: center; justify-content: space-between;
-  padding: 0 var(--space-4, 16px); background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: 0 16px; background: var(--surface); border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
 .left { display: flex; align-items: center; gap: 8px; min-width: 0; color: var(--accent); }
