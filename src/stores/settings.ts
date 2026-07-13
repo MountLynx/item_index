@@ -20,14 +20,20 @@ interface ThemeSection {
   presets: ThemePreset[]
 }
 
+interface GeneralSection {
+  locale: string
+}
+
 interface GlobalSettings {
   theme: ThemeSection
+  general: GeneralSection
 }
 
 const STORAGE_KEY = 'index-settings'
 
 function defaultSettings(): GlobalSettings {
   return {
+    general: { locale: 'zh-CN' },
     theme: {
       mode: 'light',
       accentColor: '#1A1C1E',
@@ -47,6 +53,9 @@ function loadFromStorage(): GlobalSettings {
     const parsed = JSON.parse(raw) as GlobalSettings
     // Ensure nested defaults exist
     return {
+      general: {
+        locale: parsed.general?.locale ?? 'zh-CN',
+      },
       theme: {
         mode: parsed.theme?.mode ?? 'light',
         accentColor: parsed.theme?.accentColor ?? '#1A1C1E',
@@ -149,6 +158,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const bgColor = ref('#FFFFFF')
   const textColor = ref('#333333')
   const textColorAuto = ref(true)
+  const locale = ref('zh-CN')
 
   // ── Actions ──
   function load(): void {
@@ -160,6 +170,7 @@ export const useSettingsStore = defineStore('settings', () => {
     textColor.value = settings.theme.textColor
     textColorAuto.value = settings.theme.textColorAuto
     presets.value = settings.theme.presets
+    locale.value = settings.general.locale
 
     // Load active preset CSS into local state; applyTheme() handles injection
     if (activePresetId.value) {
@@ -183,6 +194,7 @@ export const useSettingsStore = defineStore('settings', () => {
 
   function save(): void {
     const settings: GlobalSettings = {
+      general: { locale: locale.value },
       theme: {
         mode: themeMode.value,
         accentColor: accentColor.value,
@@ -299,11 +311,16 @@ export const useSettingsStore = defineStore('settings', () => {
     }
   }
 
+  function setLocale(loc: string): void {
+    locale.value = loc
+    save()
+  }
+
   return {
-    themeMode, accentColor, bgColor, textColor, textColorAuto, fontSize,
+    themeMode, accentColor, bgColor, textColor, textColorAuto, fontSize, locale,
     presets, activePresetId, presetCSS,
     load, loadActivePresetFromRepo, save, applyTheme,
     createPreset, updatePreset, deletePreset, setActivePreset,
-    applyPresetCSS,
+    applyPresetCSS, setLocale,
   }
 })
