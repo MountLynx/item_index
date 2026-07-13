@@ -1,5 +1,8 @@
 <template>
-  <div class="dashboard">
+  <div class="dashboard" data-tauri-drag-region>
+    <button class="dash-close" @click="winClose" title="Close">
+      <TablerIcon name="x" :size="18" />
+    </button>
     <div class="dash-content">
       <div class="dash-header">
         <TablerIcon name="database" :size="36" :stroke="1.5" class="dash-logo" />
@@ -32,6 +35,7 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { getCurrentWindow } from '@tauri-apps/api/window'
 import { open } from '@tauri-apps/plugin-dialog'
 import { useDashboardStore } from '@/stores/dashboard'
 import { useRepoStore } from '@/stores/repo'
@@ -106,6 +110,10 @@ async function loadStores() {
   await settingsStore.loadActivePresetFromRepo()
   settingsStore.applyTheme()
 }
+
+function winClose() {
+  getCurrentWindow().close()
+}
 </script>
 
 <style scoped>
@@ -143,4 +151,15 @@ async function loadStores() {
   display: flex; align-items: center; justify-content: center;
   min-height: 172px;
 }
+.dash-close {
+  position: fixed; top: 8px; right: 8px;
+  width: 32px; height: 32px; padding: 0;
+  border: none; background: transparent;
+  color: var(--text-secondary); cursor: pointer;
+  border-radius: var(--r-sm);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 100;
+  -webkit-app-region: no-drag;
+}
+.dash-close:hover { background: var(--surface-hover); color: var(--text); }
 </style>

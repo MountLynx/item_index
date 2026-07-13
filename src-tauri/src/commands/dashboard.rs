@@ -89,7 +89,7 @@ pub async fn open_dashboard_window(app: tauri::AppHandle) -> Result<(), String> 
     .title("Index — 仓库管理")
     .inner_size(900.0, 640.0)
     .resizable(true)
-    .decorations(true)
+    .decorations(false)
     .build()
     .map_err(|e| e.to_string())?;
     Ok(())
