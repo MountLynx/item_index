@@ -69,3 +69,12 @@ pub struct RepoInfo {
     pub item_count: i64,
     pub db_version: i64,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ManagedRepo {
+    pub path: String,
+    pub icon: Option<String>,
+    pub name: Option<String>,
+    pub last_opened_at: String,
+    pub item_count: Option<i32>,
+}
