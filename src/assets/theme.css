@@ -150,8 +150,8 @@ button.primary { background: var(--accent); color: var(--accent-fg); border-colo
 button.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
 button.ghost { background: transparent; border-color: transparent; }
 button.ghost:hover { background: var(--surface-hover); }
-button.danger { background: var(--danger); color: #fff; border-color: var(--danger); }
-button.danger:hover { background: var(--danger-hover); }
+button.danger { background: transparent; color: var(--danger); border-color: transparent; }
+button.danger:hover { background: var(--danger-subtle); color: var(--danger-hover); }
 button.icon-btn { width: 32px; height: 32px; padding: 0; border-color: transparent; }
 button.icon-btn:hover { background: var(--surface-hover); }
 
