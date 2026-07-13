@@ -77,3 +77,20 @@ pub async fn update_repo_icon(
     write(&app, &repos)?;
     Ok(repos)
 }
+
+#[tauri::command]
+pub async fn open_dashboard_window(app: tauri::AppHandle) -> Result<(), String> {
+    let label = format!("dashboard-{}", chrono::Utc::now().timestamp_millis());
+    tauri::WebviewWindowBuilder::new(
+        &app,
+        &label,
+        tauri::WebviewUrl::App("/".into()),
+    )
+    .title("Index — 仓库管理")
+    .inner_size(900.0, 640.0)
+    .resizable(true)
+    .decorations(true)
+    .build()
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}

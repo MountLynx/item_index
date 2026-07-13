@@ -30,6 +30,7 @@ pub fn run() {
             commands::dashboard::add_managed_repo,
             commands::dashboard::remove_managed_repo,
             commands::dashboard::update_repo_icon,
+            commands::dashboard::open_dashboard_window,
             commands::types::list_item_types,
             commands::types::create_item_type,
             commands::types::delete_item_type,

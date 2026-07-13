@@ -5,6 +5,10 @@
   "permissions": [
     "core:default",
     "core:window:allow-create",
+    "core:window:allow-minimize",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-close",
+    "core:window:allow-start-dragging",
     "shell:allow-open",
     "dialog:default",
     "dialog:allow-open"
