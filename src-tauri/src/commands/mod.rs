@@ -7,3 +7,4 @@ pub mod groups;
 pub mod tags;
 pub mod files;
 pub mod plugin;
+pub mod presets;

@@ -68,6 +68,9 @@ pub fn run() {
             commands::workspace::delete_workspace,
             commands::plugin::list_installed_plugins,
             commands::plugin::read_plugin_file,
+            commands::presets::list_workspace_presets,
+            commands::presets::install_preset,
+            commands::presets::export_preset,
         ])
         .setup(|app| {
             #[cfg(debug_assertions)]
