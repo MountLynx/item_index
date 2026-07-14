@@ -148,41 +148,128 @@ pub async fn list_items(
     state: State<'_, AppState>,
     group_id: Option<i64>,
     tag_id: Option<i64>,
+    type_ids: Option<Vec<i64>>,
 ) -> Result<Vec<Item>, String> {
     let pool = get_pool(&state)?;
 
-    let rows: Vec<(String, String, i64, String, String, String, String)> = if let Some(gid) = group_id {
-        if let Some(tid) = tag_id {
-            sqlx::query_as(
-                "SELECT DISTINCT i.id, i.name, i.type_id, i.properties, i.namespace, i.created_at, i.updated_at
-                 FROM items i
-                 INNER JOIN item_groups ig ON i.id = ig.item_id
-                 INNER JOIN item_tags it ON i.id = it.item_id
-                 WHERE ig.group_id = ? AND it.tag_id = ?
-                 ORDER BY i.updated_at DESC"
-            ).bind(gid).bind(tid).fetch_all(&pool).await
+    let rows: Vec<(String, String, i64, String, String, String, String)> = {
+        let tid_filter = type_ids.clone();
+
+        if let Some(gid) = group_id {
+            if let Some(tid) = tag_id {
+                if let Some(ref tids) = tid_filter {
+                    if !tids.is_empty() {
+                        // group + tag + type
+                        let placeholders: Vec<String> = tids.iter().enumerate().map(|(i, _)| format!("?{}", i + 3)).collect();
+                        let query = format!(
+                            "SELECT DISTINCT i.id, i.name, i.type_id, i.properties, i.namespace, i.created_at, i.updated_at
+                             FROM items i
+                             INNER JOIN item_groups ig ON i.id = ig.item_id
+                             INNER JOIN item_tags it ON i.id = it.item_id
+                             WHERE ig.group_id = ?1 AND it.tag_id = ?2 AND i.type_id IN ({})
+                             ORDER BY i.updated_at DESC",
+                            placeholders.join(",")
+                        );
+                        let mut q = sqlx::query_as(&query).bind(gid).bind(tid);
+                        for tid_val in tids { q = q.bind(tid_val); }
+                        q.fetch_all(&pool).await
+                    } else {
+                        sqlx::query_as(
+                            "SELECT DISTINCT i.id, i.name, i.type_id, i.properties, i.namespace, i.created_at, i.updated_at
+                             FROM items i INNER JOIN item_groups ig ON i.id = ig.item_id INNER JOIN item_tags it ON i.id = it.item_id
+                             WHERE ig.group_id = ? AND it.tag_id = ? ORDER BY i.updated_at DESC"
+                        ).bind(gid).bind(tid).fetch_all(&pool).await
+                    }
+                } else {
+                    sqlx::query_as(
+                        "SELECT DISTINCT i.id, i.name, i.type_id, i.properties, i.namespace, i.created_at, i.updated_at
+                         FROM items i INNER JOIN item_groups ig ON i.id = ig.item_id INNER JOIN item_tags it ON i.id = it.item_id
+                         WHERE ig.group_id = ? AND it.tag_id = ? ORDER BY i.updated_at DESC"
+                    ).bind(gid).bind(tid).fetch_all(&pool).await
+                }
+            } else {
+                // group only, optionally + type
+                if let Some(ref tids) = tid_filter {
+                    if !tids.is_empty() {
+                        let placeholders: Vec<String> = tids.iter().enumerate().map(|(i, _)| format!("?{}", i + 2)).collect();
+                        let query = format!(
+                            "SELECT DISTINCT i.id, i.name, i.type_id, i.properties, i.namespace, i.created_at, i.updated_at
+                             FROM items i INNER JOIN item_groups ig ON i.id = ig.item_id
+                             WHERE ig.group_id = ?1 AND i.type_id IN ({}) ORDER BY i.updated_at DESC",
+                            placeholders.join(",")
+                        );
+                        let mut q = sqlx::query_as(&query).bind(gid);
+                        for tid_val in tids { q = q.bind(tid_val); }
+                        q.fetch_all(&pool).await
+                    } else {
+                        sqlx::query_as(
+                            "SELECT DISTINCT i.id, i.name, i.type_id, i.properties, i.namespace, i.created_at, i.updated_at
+                             FROM items i INNER JOIN item_groups ig ON i.id = ig.item_id
+                             WHERE ig.group_id = ? ORDER BY i.updated_at DESC"
+                        ).bind(gid).fetch_all(&pool).await
+                    }
+                } else {
+                    sqlx::query_as(
+                        "SELECT DISTINCT i.id, i.name, i.type_id, i.properties, i.namespace, i.created_at, i.updated_at
+                         FROM items i INNER JOIN item_groups ig ON i.id = ig.item_id
+                         WHERE ig.group_id = ? ORDER BY i.updated_at DESC"
+                    ).bind(gid).fetch_all(&pool).await
+                }
+            }
+        } else if let Some(tid) = tag_id {
+            // tag only, optionally + type
+            if let Some(ref tids) = tid_filter {
+                if !tids.is_empty() {
+                    let placeholders: Vec<String> = tids.iter().enumerate().map(|(i, _)| format!("?{}", i + 2)).collect();
+                    let query = format!(
+                        "SELECT DISTINCT i.id, i.name, i.type_id, i.properties, i.namespace, i.created_at, i.updated_at
+                         FROM items i INNER JOIN item_tags it ON i.id = it.item_id
+                         WHERE it.tag_id = ?1 AND i.type_id IN ({}) ORDER BY i.updated_at DESC",
+                        placeholders.join(",")
+                    );
+                    let mut q = sqlx::query_as(&query).bind(tid);
+                    for tid_val in tids { q = q.bind(tid_val); }
+                    q.fetch_all(&pool).await
+                } else {
+                    sqlx::query_as(
+                        "SELECT DISTINCT i.id, i.name, i.type_id, i.properties, i.namespace, i.created_at, i.updated_at
+                         FROM items i INNER JOIN item_tags it ON i.id = it.item_id
+                         WHERE it.tag_id = ? ORDER BY i.updated_at DESC"
+                    ).bind(tid).fetch_all(&pool).await
+                }
+            } else {
+                sqlx::query_as(
+                    "SELECT DISTINCT i.id, i.name, i.type_id, i.properties, i.namespace, i.created_at, i.updated_at
+                     FROM items i INNER JOIN item_tags it ON i.id = it.item_id
+                     WHERE it.tag_id = ? ORDER BY i.updated_at DESC"
+                ).bind(tid).fetch_all(&pool).await
+            }
         } else {
-            sqlx::query_as(
-                "SELECT DISTINCT i.id, i.name, i.type_id, i.properties, i.namespace, i.created_at, i.updated_at
-                 FROM items i
-                 INNER JOIN item_groups ig ON i.id = ig.item_id
-                 WHERE ig.group_id = ?
-                 ORDER BY i.updated_at DESC"
-            ).bind(gid).fetch_all(&pool).await
+            // type only or everything
+            if let Some(ref tids) = tid_filter {
+                if !tids.is_empty() {
+                    let placeholders: Vec<String> = tids.iter().enumerate().map(|(i, _)| format!("?{}", i + 1)).collect();
+                    let query = format!(
+                        "SELECT id, name, type_id, properties, namespace, created_at, updated_at
+                         FROM items WHERE type_id IN ({}) ORDER BY updated_at DESC",
+                        placeholders.join(",")
+                    );
+                    let mut q = sqlx::query_as(&query);
+                    for tid_val in tids { q = q.bind(tid_val); }
+                    q.fetch_all(&pool).await
+                } else {
+                    sqlx::query_as(
+                        "SELECT id, name, type_id, properties, namespace, created_at, updated_at
+                         FROM items ORDER BY updated_at DESC"
+                    ).fetch_all(&pool).await
+                }
+            } else {
+                sqlx::query_as(
+                    "SELECT id, name, type_id, properties, namespace, created_at, updated_at
+                     FROM items ORDER BY updated_at DESC"
+                ).fetch_all(&pool).await
+            }
         }
-    } else if let Some(tid) = tag_id {
-        sqlx::query_as(
-            "SELECT DISTINCT i.id, i.name, i.type_id, i.properties, i.namespace, i.created_at, i.updated_at
-             FROM items i
-             INNER JOIN item_tags it ON i.id = it.item_id
-             WHERE it.tag_id = ?
-             ORDER BY i.updated_at DESC"
-        ).bind(tid).fetch_all(&pool).await
-    } else {
-        sqlx::query_as(
-            "SELECT id, name, type_id, properties, namespace, created_at, updated_at
-             FROM items ORDER BY updated_at DESC"
-        ).fetch_all(&pool).await
     }.map_err(|e| e.to_string())?;
 
     Ok(rows.into_iter().map(|(id, name, type_id, props_str, namespace, created_at, updated_at)| {
