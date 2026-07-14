@@ -40,26 +40,38 @@ export function usePluginLoader() {
     }
 
     // 3. Execute JS to get component definition
-    let component: any
+    let componentDef: any
     try {
       const moduleFn = new Function('exports', jsCode)
       const exports: any = {}
       moduleFn(exports)
-      component = exports.default || exports
+      componentDef = exports.default || exports
     } catch (e) {
       console.error(`[PluginLoader] Failed to execute "${pluginName}":`, e)
       failedPlugins.value.add(pluginName)
       return null
     }
 
+    // 3b. If the exported value is a factory function, call it with Vue APIs
+    if (typeof componentDef === 'function') {
+      try {
+        const { h, ref, computed, watch, onMounted } = await import('vue')
+        componentDef = componentDef({ h, ref, computed, watch, onMounted })
+      } catch (e) {
+        console.error(`[PluginLoader] Failed to call factory for "${pluginName}":`, e)
+        failedPlugins.value.add(pluginName)
+        return null
+      }
+    }
+
     // 4. Validate component has setup/render
-    if (typeof component !== 'object' && typeof component !== 'function') {
+    if (typeof componentDef !== 'object' && typeof componentDef !== 'function') {
       console.error(`[PluginLoader] "${pluginName}" does not export a valid component`)
       failedPlugins.value.add(pluginName)
       return null
     }
 
-    const result: LoadResult = { component, manifest }
+    const result: LoadResult = { component: componentDef, manifest }
     loadedCache.value.set(pluginName, result)
     return result
   }

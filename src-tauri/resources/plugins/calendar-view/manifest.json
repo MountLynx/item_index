@@ -1,0 +1,11 @@
+{
+  "name": "calendar-view",
+  "version": "1.0.0",
+  "title": "日历视图",
+  "icon": "calendar",
+  "extends": "center-panel",
+  "requiresFields": ["date"],
+  "config": {
+    "defaultView": "month"
+  }
+}

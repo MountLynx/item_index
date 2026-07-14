@@ -1,0 +1,26 @@
+{
+  "name": "日程管理",
+  "icon": "calendar",
+  "itemTypes": ["日程", "任务"],
+  "centerTabs": [
+    { "type": "list", "label": "列表", "icon": "list" },
+    { "type": "plugin", "plugin": "calendar-view", "label": "日历", "config": { "defaultView": "month" } }
+  ],
+  "defaultTab": "calendar-view",
+  "rightPanelAddons": [],
+  "sidebarAddons": [],
+  "bundle": {
+    "plugins": ["calendar-view"],
+    "itemTypes": [
+      {
+        "name": "日程",
+        "icon": "calendar",
+        "fields": [
+          { "name": "日期", "field_type": "date", "icon": "calendar", "label": "日期" },
+          { "name": "地点", "field_type": "text", "icon": "map-pin", "label": "地点" },
+          { "name": "备注", "field_type": "text", "icon": "notes", "label": "备注" }
+        ]
+      }
+    ]
+  }
+}

@@ -3,6 +3,10 @@ use tauri::{AppHandle, Manager, State};
 use crate::models::{PresetSummary, WorkspaceConfig};
 use crate::state::AppState;
 
+fn get_pool(state: &State<'_, AppState>) -> Result<sqlx::SqlitePool, String> {
+    state.db.lock().unwrap().clone().ok_or("No repository open".to_string())
+}
+
 /// Validates that a plugin or preset name contains only safe characters
 /// (alphanumeric, hyphens, underscores) and no path separators or `..`.
 fn is_safe_plugin_name(name: &str) -> bool {
@@ -123,6 +127,50 @@ pub async fn install_preset(
                 let dst = repo_plugins.join(plugin_name);
                 if src.exists() && !dst.exists() {
                     copy_dir(&src, &dst)?;
+                }
+            }
+        }
+    }
+
+    // 2.5 Create item types from bundle (insert or ignore if name exists)
+    if let Some(b) = bundle {
+        if let Some(item_types) = b.get("itemTypes").and_then(|v| v.as_array()) {
+            let pool = get_pool(&state)?;
+            for t in item_types {
+                let type_name = t["name"].as_str().unwrap_or("");
+                let type_icon = t["icon"].as_str().unwrap_or("file");
+                if type_name.is_empty() { continue; }
+
+                // INSERT OR IGNORE — skip if type name already exists
+                let _ = sqlx::query(
+                    "INSERT OR IGNORE INTO item_types (name, icon, namespace) VALUES (?, ?, 'default')"
+                ).bind(type_name).bind(type_icon).execute(&pool).await;
+
+                // Get type id (newly inserted or already existing)
+                let type_id: Option<i64> = sqlx::query_scalar(
+                    "SELECT id FROM item_types WHERE name = ?"
+                ).bind(type_name).fetch_optional(&pool).await.map_err(|e| e.to_string())?;
+
+                if let Some(tid) = type_id {
+                    if let Some(fields) = t.get("fields").and_then(|v| v.as_array()) {
+                        for f in fields {
+                            let fname = f["name"].as_str().unwrap_or("");
+                            let ftype = f["field_type"].as_str().unwrap_or("text");
+                            let ficon = f["icon"].as_str().unwrap_or("circle");
+                            let flabel = f["label"].as_str().unwrap_or("");
+                            if fname.is_empty() { continue; }
+
+                            let max_pos: Option<i64> = sqlx::query_scalar(
+                                "SELECT MAX(position) FROM fields WHERE type_id = ?"
+                            ).bind(tid).fetch_one(&pool).await.map_err(|e| e.to_string())?;
+
+                            let pos = max_pos.unwrap_or(-1) + 1;
+                            let _ = sqlx::query(
+                                "INSERT OR IGNORE INTO fields (type_id, name, field_type, icon, position, label) VALUES (?, ?, ?, ?, ?, ?)"
+                            ).bind(tid).bind(fname).bind(ftype).bind(ficon).bind(pos).bind(flabel)
+                                .execute(&pool).await;
+                        }
+                    }
                 }
             }
         }
