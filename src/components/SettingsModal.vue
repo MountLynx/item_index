@@ -135,7 +135,37 @@
                   <button class="sm" @click="onSyncFromCSS">与自定义主题保持一致</button>
                 </div>
               </div>
+            <!-- Workspace tab -->
+            <div v-else-if="activeTab === 'workspace'" class="tab-panel">
+              <div class="ws-list">
+                <div v-for="ws in workspaceStore.workspaces" :key="ws.name" class="ws-card"
+                  @click="editWorkspace(ws.name)">
+                  <TablerIcon :name="ws.icon" :size="20" />
+                  <span class="ws-name">{{ ws.name }}</span>
+                  <span v-if="ws.is_default" class="ws-df">默认</span>
+                  <button class="icon-btn sm" @click.stop="deleteWs(ws.name)" :disabled="workspaceStore.workspaces.length <= 1">
+                    <TablerIcon name="trash" :size="14" />
+                  </button>
+                </div>
+                <div class="ws-actions">
+                  <button @click="newWorkspace">＋ 新建工作区</button>
+                  <button @click="showPresetPicker = true">🧩 从预设安装</button>
+                </div>
+              </div>
             </div>
+          </div>
+        </div>
+
+        <!-- Preset picker modal -->
+        <div v-if="showPresetPicker" class="preset-modal" @click.self="showPresetPicker = false">
+          <div class="preset-list">
+            <h3>选择预设</h3>
+            <div v-if="presets.length === 0" class="empty-hint">暂无可用预设</div>
+            <div v-for="p in presets" :key="p.name" class="preset-item" @click="installPreset(p.name)">
+              <TablerIcon :name="p.icon" :size="18" />
+              <div><strong>{{ p.name }}</strong><br><small>{{ p.description }}</small></div>
+            </div>
+            <button @click="showPresetPicker = false">取消</button>
           </div>
         </div>
 
@@ -154,16 +184,60 @@ import { ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSettingsStore, parseCSSVariables } from '@/stores/settings'
 import { useThemeStore } from '@/stores/theme'
+import { useWorkspaceStore } from '@/stores/workspace'
+import { invoke } from '@tauri-apps/api/core'
 import TablerIcon from './TablerIcon.vue'
+import type { PresetSummary, WorkspaceConfig } from '@/types/bindings'
 
 const settingsStore = useSettingsStore()
 const themeStore = useThemeStore()
+const workspaceStore = useWorkspaceStore()
 const { locale: i18nLocale } = useI18n()
 
 const tabs = [
   { id: 'general', icon: 'settings', label: '通用' },
   { id: 'theme', icon: 'palette', label: '主题' },
+  { id: 'workspace', icon: 'layout', label: '工作区' },
 ]
+
+// Workspace management
+const showPresetPicker = ref(false)
+const presets = ref<PresetSummary[]>([])
+
+watch(() => showPresetPicker.value, async (v) => {
+  if (v) presets.value = await invoke<PresetSummary[]>('list_workspace_presets')
+})
+
+function newWorkspace() {
+  const name = prompt('输入工作区名称：')
+  if (!name?.trim()) return
+  const cfg: WorkspaceConfig = {
+    name: name.trim(),
+    icon: 'layout',
+    itemTypes: [],
+    centerTabs: [{ type: 'list', label: '列表', icon: 'list' }],
+    defaultTab: 'list',
+    rightPanelAddons: [],
+    sidebarAddons: [],
+  }
+  workspaceStore.save(cfg)
+}
+
+async function deleteWs(name: string) {
+  if (!confirm(`确定删除工作区 "${name}"？`)) return
+  try { await workspaceStore.remove(name) } catch (e) { alert('' + e) }
+}
+
+function editWorkspace(name: string) {
+  workspaceStore.activate(name)
+}
+
+async function installPreset(name: string) {
+  try {
+    await workspaceStore.installFromPreset(name)
+    showPresetPicker.value = false
+  } catch (e) { alert('' + e) }
+}
 
 const fontSizes = ['small', 'medium', 'large'] as const
 
@@ -516,4 +590,60 @@ defineExpose({ open, close })
 .css-actions {
   display: flex; gap: 6px; flex-wrap: wrap;
 }
+
+/* Workspace tab */
+.ws-list {
+  display: flex; flex-direction: column; gap: 6px;
+}
+.ws-card {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  transition: background var(--fast) var(--ease);
+}
+.ws-card:hover { background: var(--surface-hover); }
+.ws-name { flex: 1; font-size: var(--fs-sm); font-weight: var(--fw-medium); }
+.ws-df {
+  font-size: var(--fs-xs); color: var(--accent-fg);
+  background: var(--accent); padding: 2px 6px;
+  border-radius: var(--r-sm);
+}
+.ws-actions {
+  display: flex; gap: 8px; margin-top: 8px;
+}
+.ws-actions button {
+  flex: 1; height: 32px;
+  font-size: var(--fs-sm);
+}
+
+/* Preset picker */
+.preset-modal {
+  position: fixed; inset: 0; z-index: 300;
+  background: rgba(0,0,0,0.3);
+  display: flex; align-items: center; justify-content: center;
+}
+.preset-list {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 20px; min-width: 320px; max-height: 70vh; overflow-y: auto;
+}
+.preset-list h3 { margin: 0 0 12px; font-size: var(--fs-base); }
+.preset-list > button {
+  width: 100%; margin-top: 12px; height: 32px;
+}
+.empty-hint {
+  text-align: center; color: var(--text-muted);
+  font-size: var(--fs-sm); padding: 24px 0;
+}
+.preset-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; border-radius: var(--r-md);
+  cursor: pointer; transition: background var(--fast) var(--ease);
+}
+.preset-item:hover { background: var(--surface-hover); }
+.preset-item strong { font-size: var(--fs-sm); }
+.preset-item small { font-size: var(--fs-xs); color: var(--text-muted); }
 </style>
