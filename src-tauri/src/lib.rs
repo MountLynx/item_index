@@ -66,6 +66,8 @@ pub fn run() {
             commands::workspace::read_workspace,
             commands::workspace::write_workspace,
             commands::workspace::delete_workspace,
+            commands::plugin::list_installed_plugins,
+            commands::plugin::read_plugin_file,
         ])
         .setup(|app| {
             #[cfg(debug_assertions)]

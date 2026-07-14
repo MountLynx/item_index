@@ -6,3 +6,4 @@ pub mod items;
 pub mod groups;
 pub mod tags;
 pub mod files;
+pub mod plugin;
