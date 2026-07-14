@@ -137,7 +137,12 @@
               </div>
             <!-- Workspace tab -->
             <div v-else-if="activeTab === 'workspace'" class="tab-panel">
-              <div class="ws-list">
+              <WorkspaceEditor
+                v-if="editingWorkspace"
+                :workspaceName="editingWorkspace"
+                @back="editingWorkspace = null"
+              />
+              <div v-else class="ws-list">
                 <div v-for="ws in workspaceStore.workspaces" :key="ws.name" class="ws-card"
                   @click="editWorkspace(ws.name)">
                   <TablerIcon :name="ws.icon" :size="20" />
@@ -187,6 +192,7 @@ import { useThemeStore } from '@/stores/theme'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { invoke } from '@tauri-apps/api/core'
 import TablerIcon from './TablerIcon.vue'
+import WorkspaceEditor from './WorkspaceEditor.vue'
 import type { PresetSummary, WorkspaceConfig } from '@/types/bindings'
 
 const settingsStore = useSettingsStore()
@@ -201,6 +207,7 @@ const tabs = [
 ]
 
 // Workspace management
+const editingWorkspace = ref<string | null>(null)
 const showPresetPicker = ref(false)
 const presets = ref<PresetSummary[]>([])
 
@@ -229,7 +236,7 @@ async function deleteWs(name: string) {
 }
 
 function editWorkspace(name: string) {
-  workspaceStore.activate(name)
+  editingWorkspace.value = name
 }
 
 async function installPreset(name: string) {
