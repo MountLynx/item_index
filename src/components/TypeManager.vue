@@ -161,8 +161,8 @@
               </span>
               <TablerIcon :name="f.icon" :size="16" />
               <span class="field-name">{{ f.name }}</span>
-              <span class="type-tag">{{ f.field_type === 'text' ? $t('typeManager.text') : $t('typeManager.checkbox') }}</span>
-              <span v-if="f.field_type === 'checkbox' && f.label" class="label-hint">{{ f.label }}</span>
+              <span class="type-tag">{{ $t('typeManager.' + f.field_type) }}</span>
+              <span v-if="f.label" class="label-hint">{{ f.label }}</span>
             </div>
             <button
               class="icon-btn sm danger"
@@ -185,9 +185,11 @@
               <select v-model="fieldEditType" class="type-select">
                 <option value="text">{{ $t('typeManager.text') }}</option>
                 <option value="checkbox">{{ $t('typeManager.checkbox') }}</option>
+                <option value="date">{{ $t('typeManager.date') }}</option>
+                <option value="number">{{ $t('typeManager.number') }}</option>
               </select>
               <input
-                v-if="fieldEditType === 'checkbox'"
+                v-if="fieldEditType !== 'text'"
                 v-model="fieldEditLabel"
                 class="label-input"
                 :placeholder="$t('typeManager.displayText')"
@@ -223,9 +225,11 @@
             <select v-model="newFieldType" class="type-select">
               <option value="text">{{ $t('typeManager.text') }}</option>
               <option value="checkbox">{{ $t('typeManager.checkbox') }}</option>
+              <option value="date">{{ $t('typeManager.date') }}</option>
+              <option value="number">{{ $t('typeManager.number') }}</option>
             </select>
             <input
-              v-if="newFieldType === 'checkbox'"
+              v-if="newFieldType !== 'text'"
               v-model="newFieldLabel"
               class="label-input"
               :placeholder="$t('typeManager.displayText')"
@@ -292,14 +296,14 @@ const catIcon = ref('')
 const editingFieldId = ref<number | null>(null)
 const fieldEditName = ref('')
 const fieldEditIcon = ref('')
-const fieldEditType = ref<'text' | 'checkbox'>('text')
+const fieldEditType = ref<'text' | 'checkbox' | 'date' | 'number'>('text')
 const fieldEditLabel = ref('')
 
 // ── New field ──
 const showNewField = ref(false)
 const newFieldName = ref('')
 const newFieldIcon = ref('')
-const newFieldType = ref<'text' | 'checkbox'>('text')
+const newFieldType = ref<'text' | 'checkbox' | 'date' | 'number'>('text')
 const newFieldLabel = ref('')
 
 // ── Delete popover ──
@@ -415,7 +419,7 @@ function startEditField(f: Field) {
   editingFieldId.value = f.id
   fieldEditName.value = f.name
   fieldEditIcon.value = f.icon
-  fieldEditType.value = f.field_type as 'text' | 'checkbox'
+  fieldEditType.value = f.field_type as 'text' | 'checkbox' | 'date' | 'number'
   fieldEditLabel.value = f.label || ''
 }
 

@@ -37,7 +37,7 @@ export default {
     typeInfo: 'Type Info', fields: 'Fields', items: ' items',
     addField: 'Add Field',
     fieldName: 'Field Name',
-    text: 'Text', checkbox: 'Checkbox',
+    text: 'Text', checkbox: 'Checkbox', date: 'Date', number: 'Number',
     displayText: 'Display text (optional)',
     noFields: 'No fields yet. Add one below.',
     edit: 'Edit', delete: 'Delete',

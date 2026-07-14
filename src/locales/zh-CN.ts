@@ -37,7 +37,7 @@ export default {
     typeInfo: '类别信息', fields: '字段', items: ' 项',
     addField: '添加字段',
     fieldName: '字段名',
-    text: '文本', checkbox: '复选框',
+    text: '文本', checkbox: '复选框', date: '日期', number: '数字',
     displayText: '显示文字（可选）',
     noFields: '暂无字段，点击下方添加',
     edit: '编辑', delete: '删除',

@@ -5,6 +5,12 @@
       <div v-if="field.field_type === 'text'" class="field-input-wrap">
         <input :value="getValue(field.name)" @input="setValue(field.name, ($event.target as HTMLInputElement).value)" @blur="save" :placeholder="field.name" />
       </div>
+      <div v-else-if="field.field_type === 'number'" class="field-input-wrap">
+        <input type="number" :value="getValue(field.name)" @input="setValue(field.name, ($event.target as HTMLInputElement).value)" @blur="save" :placeholder="field.name" />
+      </div>
+      <div v-else-if="field.field_type === 'date'" class="field-input-wrap">
+        <input type="date" :value="getValue(field.name)" @input="setValue(field.name, ($event.target as HTMLInputElement).value)" @blur="save" />
+      </div>
       <label v-else-if="field.field_type === 'checkbox'" class="checkbox-wrap">
         <input type="checkbox" :checked="!!getValue(field.name)" @change="toggleCheck(field.name)" />
         <span class="check-label">{{ field.label || field.name }}</span>
