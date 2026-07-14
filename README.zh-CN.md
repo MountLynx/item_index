@@ -5,9 +5,9 @@
 <h1 align="center">Index</h1>
 
 <p align="center">
-  <strong>本地优先 · 插件扩展 · 对象管理</strong>
+  <strong>本地优先 · <del>插件扩展</del> · 对象管理</strong>
   <br />
-  <em>类 Zotero 的个人 Wiki 管理框架 —— 基于 Tauri 2</em>
+  <em>管理你的一切 —— 基于 Tauri 2</em>
 </p>
 
 <p align="center">

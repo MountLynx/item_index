@@ -5,9 +5,9 @@
 <h1 align="center">Index</h1>
 
 <p align="center">
-  <strong>Local-first · Plugin-extensible · Object Manager</strong>
+  <strong>Local-first · <del>Plugin-extensible</del> · Object Manager</strong>
   <br />
-  <em>Think "personal wiki meets Zotero" — built with Tauri 2</em>
+  <em>Manage everything — built with Tauri 2</em>
 </p>
 
 <p align="center">
