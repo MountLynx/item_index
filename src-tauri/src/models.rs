@@ -78,3 +78,90 @@ pub struct ManagedRepo {
     pub last_opened_at: String,
     pub item_count: Option<i64>,
 }
+
+// ── Workspace & Plugin models ──
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CenterTab {
+    #[serde(rename = "type")]
+    pub tab_type: String,              // "list" or "plugin"
+    pub label: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub icon: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub plugin: Option<String>,        // plugin name, only when type="plugin"
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub config: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AddonRef {
+    pub plugin: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub config: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkspaceConfig {
+    pub name: String,
+    pub icon: String,
+    #[serde(default)]
+    pub item_types: Vec<String>,       // item type names, empty = all
+    #[serde(rename = "centerTabs")]
+    pub center_tabs: Vec<CenterTab>,
+    #[serde(rename = "defaultTab")]
+    pub default_tab: String,
+    #[serde(default, rename = "rightPanelAddons")]
+    pub right_panel_addons: Vec<AddonRef>,
+    #[serde(default, rename = "sidebarAddons")]
+    pub sidebar_addons: Vec<AddonRef>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkspaceSummary {
+    pub name: String,
+    pub icon: String,
+    pub is_default: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PluginManifest {
+    pub name: String,
+    pub version: String,
+    pub title: String,
+    pub icon: String,
+    pub extends: String,
+    #[serde(default)]
+    pub requires_fields: Vec<String>,
+    #[serde(default)]
+    pub config: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PresetSummary {
+    pub name: String,
+    pub icon: String,
+    pub description: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PresetBundle {
+    pub plugins: Vec<String>,
+    #[serde(rename = "itemTypes")]
+    pub item_types: Vec<PresetTypeTemplate>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PresetTypeTemplate {
+    pub name: String,
+    pub icon: String,
+    pub fields: Vec<PresetFieldTemplate>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PresetFieldTemplate {
+    pub name: String,
+    pub field_type: String,
+    pub icon: String,
+    pub label: String,
+}
