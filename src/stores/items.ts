@@ -11,10 +11,11 @@ export const useItemStore = defineStore('items', () => {
   const detail = ref<ItemDetail | null>(null)
   const loadingDetail = ref(false)
 
-  async function fetchList(groupId?: number | null, tagId?: number | null): Promise<void> {
+  async function fetchList(groupId?: number | null, tagId?: number | null, typeIds?: number[]): Promise<void> {
     items.value = await invoke<Item[]>('list_items', {
       groupId: groupId ?? null,
       tagId: tagId ?? null,
+      typeIds: typeIds ?? null,
     })
   }
 
