@@ -1,5 +1,5 @@
 export default {
-  topbar: { newItem: 'New Item' },
+  topbar: { newItem: 'New Item', manageRepos: 'Manage Repos' },
   settings: {
     title: 'Settings', general: 'General', theme: 'Appearance',
     mode: 'Mode', light: 'Light', dark: 'Dark',
@@ -65,6 +65,20 @@ export default {
     selectFolder: 'Select Folder',
     createFailed: 'Create failed',
     openFailed: 'Cannot open repository',
+  },
+  dashboard: {
+    title: 'Index',
+    tagline: 'Local-first · Plugin-extensible · Object Manager',
+    createOrImport: 'Create or Import Repo',
+    newRepo: 'New Repo',
+    importRepo: 'Import Existing Repo',
+    removeRepo: 'Remove from list',
+    confirmRemove: 'Remove this repo from the list? Files and data remain on disk.',
+    pathUnavailable: 'Path unavailable',
+    templateSoon: 'Start from a template · Coming soon',
+    selectFolder: 'Select Folder',
+    notAValidRepo: 'Selected folder is not an Index repository',
+    items: ' items',
   },
   statusBar: {
     items: ' items', path: 'Path', ready: 'Ready',
