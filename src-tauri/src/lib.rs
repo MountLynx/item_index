@@ -16,6 +16,7 @@ fn greet(name: &str) -> String {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_dialog::init())
         .manage(AppState::new())
         .invoke_handler(tauri::generate_handler![
             greet,
@@ -25,6 +26,11 @@ pub fn run() {
             commands::repo::get_repo_info,
             commands::repo::get_state,
             commands::repo::save_state,
+            commands::dashboard::list_managed_repos,
+            commands::dashboard::add_managed_repo,
+            commands::dashboard::remove_managed_repo,
+            commands::dashboard::update_repo_icon,
+            commands::dashboard::open_dashboard_window,
             commands::types::list_item_types,
             commands::types::create_item_type,
             commands::types::delete_item_type,
