@@ -10,7 +10,7 @@ export interface Field {
   id: number
   type_id: number
   name: string
-  field_type: 'text' | 'checkbox'
+  field_type: 'text' | 'checkbox' | 'date' | 'number'
   icon: string
   position: number
   label: string
@@ -66,4 +66,46 @@ export interface ManagedRepo {
   name: string | null
   last_opened_at: string
   item_count: number | null
+}
+
+// ── Workspace & Plugin types ──
+
+export interface CenterTab {
+  type: 'list' | 'plugin'
+  label: string
+  icon?: string
+  plugin?: string        // plugin name, only when type='plugin'
+  config?: Record<string, unknown>
+}
+
+export interface WorkspaceConfig {
+  name: string
+  icon: string
+  itemTypes: string[]    // item type names, empty = all
+  centerTabs: CenterTab[]
+  defaultTab: string
+  rightPanelAddons: { plugin: string; config?: Record<string, unknown> }[]
+  sidebarAddons: { plugin: string; config?: Record<string, unknown> }[]
+}
+
+export interface WorkspaceSummary {
+  name: string
+  icon: string
+  is_default: boolean
+}
+
+export interface PluginManifest {
+  name: string
+  version: string
+  title: string
+  icon: string
+  extends: 'center-panel' | 'right-panel' | 'sidebar'
+  requiresFields: string[]
+  config?: Record<string, unknown>
+}
+
+export interface PresetSummary {
+  name: string
+  icon: string
+  description: string
 }
