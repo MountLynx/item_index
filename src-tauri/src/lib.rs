@@ -64,7 +64,8 @@ pub fn run() {
             commands::files::open_file,
         ])
         .setup(|app| {
-            if cfg!(debug_assertions) {
+            #[cfg(debug_assertions)]
+            {
                 let window = app.get_webview_window("main").unwrap();
                 window.open_devtools();
             }
