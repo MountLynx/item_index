@@ -1,0 +1,66 @@
+<h2>自定义标题栏 — 三种风格</h2>
+<p class="subtitle">选择一个方向，之后可以细化调整。所有方案都将原生标题栏替换为 HTML 自定义标题栏（Tauri decorations: false）</p>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">A — 深色一体化</div>
+    <div class="mockup-body" style="background:#1A1C1E;color:#fff;font-family:system-ui;border-radius:0;">
+      <div style="display:flex;align-items:center;justify-content:space-between;height:38px;padding:0 8px 0 16px;font-size:13px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="font-size:18px;">◆</span>
+          <span style="font-weight:620;">Index</span>
+          <span style="opacity:0.35;font-size:12px;">— 我的仓库</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:2px;">
+          <button style="background:none;border:none;color:rgba(255,255,255,0.7);padding:6px 10px;border-radius:4px;cursor:pointer;font-size:16px;">&#x25E6;</button>
+          <button style="background:none;border:none;color:rgba(255,255,255,0.7);padding:6px 10px;border-radius:4px;cursor:pointer;font-size:16px;">&#x25A0;</button>
+          <button style="background:none;border:none;color:rgba(255,255,255,0.7);padding:6px 10px;border-radius:4px;cursor:pointer;font-size:16px;margin-left:4px;" onmouseover="this.style.background='#C42B1C';this.style.color='#fff'">&#x2715;</button>
+        </div>
+      </div>
+      <div style="height:1px;background:rgba(255,255,255,0.08);"></div>
+      <div style="height:48px;display:flex;align-items:center;padding:0 16px;gap:8px;">
+        <span style="font-weight:620;">+ 新建条目</span>
+        <span style="margin-left:auto;opacity:0.5;">⚙</span>
+        <span style="opacity:0.5;">☰</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-header">B — 浅色极简</div>
+    <div class="mockup-body" style="background:#FAFAFA;color:#333;font-family:system-ui;border-radius:0;">
+      <div style="display:flex;align-items:center;justify-content:space-between;height:38px;padding:0 12px;font-size:13px;border-bottom:1px solid #eee;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="color:#1A1C1E;">◆ Index</span>
+          <span style="opacity:0.4;">— 我的仓库</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:4px;">
+          <button style="background:#1A1C1E;color:#fff;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:620;">+ 新建</button>
+          <button style="background:none;border:none;color:#555;padding:4px 8px;border-radius:4px;cursor:pointer;">⚙</button>
+          <button style="background:none;border:none;color:#555;padding:4px 8px;border-radius:4px;cursor:pointer;">☰</button>
+          <span style="width:1px;height:20px;background:#ddd;margin:0 8px;"></span>
+          <button style="background:none;border:none;color:#999;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:14px;">&#x25E6;</button>
+          <button style="background:none;border:none;color:#999;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:14px;">&#x25A0;</button>
+          <button style="background:none;border:none;color:#999;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:14px;" onmouseover="this.style.background='#C42B1C';this.style.color='#fff'">&#x2715;</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="cards" style="margin-top:24px;">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>深色一体化</h3>
+      <p>标题栏 + Topbar 融合为一条深色栏，logo/标题在左，窗口控制 + 操作按钮在右。视觉冲击力强，适合以内容为主的 app</p>
+    </div>
+  </div>
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>浅色极简</h3>
+      <p>仅一行标题栏，原 Topbar 的按钮上移到标题栏行。干净、省空间，与 Quiet Strength 浅色主题高度一致</p>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,84 @@
+<h2>方案 B — 单行标题栏（主题适配）</h2>
+<p class="subtitle">浅色和暗色模式下的同一布局。所有颜色来自 CSS 令牌，跟随主题切换。</p>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">浅色主题</div>
+    <div class="mockup-body" style="background:#FAFAFA;color:#555;font-family:system-ui;border-radius:0;">
+      <div style="display:flex;align-items:center;justify-content:space-between;height:40px;padding:0 10px;font-size:13px;border-bottom:1px solid #EEEEEE;" data-tauri-drag-region>
+        <!-- 左：Logo + 仓库名 -->
+        <div style="display:flex;align-items:center;gap:8px;min-width:0;">
+          <span style="color:#1A1C1E;font-size:15px;flex-shrink:0;">◆</span>
+          <span style="font-weight:620;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">我的仓库</span>
+        </div>
+        <!-- 右：操作 + 窗口控制 -->
+        <div style="display:flex;align-items:center;gap:2px;flex-shrink:0;">
+          <button style="background:#1A1C1E;color:#fff;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:620;">+ 新建</button>
+          <button style="background:none;border:none;color:#555;width:32px;height:32px;border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;">⚙</button>
+          <button style="background:none;border:none;color:#555;width:32px;height:32px;border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;">☰</button>
+          <span style="width:1px;height:20px;background:#ddd;margin:0 6px;"></span>
+          <button class="win-ctrl" style="background:none;border:none;color:#999;width:36px;height:28px;border-radius:4px;cursor:pointer;font-size:14px;">&#x2014;</button>
+          <button class="win-ctrl" style="background:none;border:none;color:#999;width:36px;height:28px;border-radius:4px;cursor:pointer;font-size:14px;">&#x25A1;</button>
+          <button class="win-ctrl" style="background:none;border:none;color:#999;width:36px;height:28px;border-radius:4px;cursor:pointer;font-size:14px;">&#x2715;</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-header">暗色主题</div>
+    <div class="mockup-body" style="background:#252525;color:#E1E1E1;font-family:system-ui;border-radius:0;">
+      <div style="display:flex;align-items:center;justify-content:space-between;height:40px;padding:0 10px;font-size:13px;border-bottom:1px solid #333;" data-tauri-drag-region>
+        <div style="display:flex;align-items:center;gap:8px;min-width:0;">
+          <span style="color:#F4F4F5;font-size:15px;flex-shrink:0;">◆</span>
+          <span style="font-weight:620;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">我的仓库</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:2px;flex-shrink:0;">
+          <button style="background:#F4F4F5;color:#1E1E1E;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:620;">+ 新建</button>
+          <button style="background:none;border:none;color:#E1E1E1;width:32px;height:32px;border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;">⚙</button>
+          <button style="background:none;border:none;color:#E1E1E1;width:32px;height:32px;border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;">☰</button>
+          <span style="width:1px;height:20px;background:#444;margin:0 6px;"></span>
+          <button style="background:none;border:none;color:#999;width:36px;height:28px;border-radius:4px;cursor:pointer;font-size:14px;">&#x2014;</button>
+          <button style="background:none;border:none;color:#999;width:36px;height:28px;border-radius:4px;cursor:pointer;font-size:14px;">&#x25A1;</button>
+          <button style="background:none;border:none;color:#999;width:36px;height:28px;border-radius:4px;cursor:pointer;font-size:14px;">&#x2715;</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top:24px;">
+  <h3>布局结构</h3>
+  <div class="mockup" style="max-width:720px;">
+    <div class="mockup-body" style="background:#FAFAFA;font-family:system-ui;font-size:12px;padding:16px;">
+      <pre style="margin:0;color:#555;line-height:1.8;">
+┌─ 单行标题栏 (40px) ──────────────────────────────────────────┐
+│ ◆ 仓库名        + 新建  ⚙  ☰  │  —  □  ✕                   │
+│ ← drag-region →  ← 操作区 →   │  ← 窗口控制 →               │
+└──────────────────────────────────────────────────────────────┘
+      </pre>
+    </div>
+  </div>
+  <ul style="margin-top:12px;color:#777;">
+    <li>整行设置 <code>data-tauri-drag-region</code>，可拖拽移动窗口</li>
+    <li>窗口控制按钮（最小化/最大化/关闭）调用了 Tauri 窗口 API</li>
+    <li>所有颜色使用 <code>var(--surface)</code>、<code>var(--text)</code> 等 CSS 令牌，自动适配主题</li>
+    <li>原 Topbar 组件合并到标题栏中，释放 48px 垂直空间</li>
+    <li>窗口圆角（Windows 11 风格）通过 Tauri <code>shadow: false</code> + 自绘实现</li>
+  </ul>
+</div>
+
+<div class="section">
+  <h3>窗口控制按钮 hover 效果</h3>
+  <p class="subtitle">最大化/最小化 hover 时背景用 --surface-hover；关闭按钮 hover 时红色背景</p>
+  <div style="display:flex;gap:12px;">
+    <div style="display:flex;align-items:center;gap:6px;padding:8px 12px;background:#FAFAFA;border-radius:6px;border:1px solid #eee;">
+      <span style="font-size:12px;">&#x2014;</span>
+      <span style="font-size:11px;color:#666;">hover → 灰色底</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px;padding:8px 12px;background:#FAFAFA;border-radius:6px;border:1px solid #eee;">
+      <span style="font-size:14px;color:#C42B1C;">&#x2715;</span>
+      <span style="font-size:11px;color:#666;">hover → #C42B1C 红底 + 白字</span>
+    </div>
+  </div>
+</div>
