@@ -51,6 +51,11 @@ pub async fn create_repo(
     std::fs::write(&state_json, r#"{"theme":"light"}"#)
         .map_err(|e| format!("Write error: {}", e))?;
 
+    // Ensure workspaces directory exists
+    let workspaces_dir = index_dir.join("workspaces");
+    std::fs::create_dir_all(&workspaces_dir)
+        .map_err(|e| format!("Cannot create workspaces dir: {}", e))?;
+
     let item_count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM items")
         .fetch_one(&pool)
         .await
@@ -93,6 +98,11 @@ pub async fn open_repo(
 
     *state.db.lock().unwrap() = Some(pool);
     *state.repo_path.lock().unwrap() = Some(path.clone());
+
+    // Ensure workspaces directory exists
+    let workspaces_dir = index_dir.join("workspaces");
+    std::fs::create_dir_all(&workspaces_dir)
+        .map_err(|e| format!("Cannot create workspaces dir: {}", e))?;
 
     Ok(RepoInfo {
         path,

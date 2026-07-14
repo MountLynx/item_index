@@ -62,6 +62,10 @@ pub fn run() {
             commands::files::rename_file,
             commands::files::add_attachment,
             commands::files::open_file,
+            commands::workspace::list_workspaces,
+            commands::workspace::read_workspace,
+            commands::workspace::write_workspace,
+            commands::workspace::delete_workspace,
         ])
         .setup(|app| {
             #[cfg(debug_assertions)]
