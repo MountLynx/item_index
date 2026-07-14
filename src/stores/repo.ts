@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import type { RepoInfo } from '@/types/bindings'
+import { useDashboardStore } from './dashboard'
 
 export const useRepoStore = defineStore('repo', () => {
   const repoPath = ref<string | null>(null)
@@ -12,6 +13,8 @@ export const useRepoStore = defineStore('repo', () => {
     const info = await invoke<RepoInfo>('create_repo', { path })
     repoPath.value = info.path
     itemCount.value = info.item_count
+    // Auto-record in dashboard
+    try { await useDashboardStore().addRepo(info.path) } catch { /* ignore */ }
     return info
   }
 
@@ -19,6 +22,8 @@ export const useRepoStore = defineStore('repo', () => {
     const info = await invoke<RepoInfo>('open_repo', { path })
     repoPath.value = info.path
     itemCount.value = info.item_count
+    // Auto-record in dashboard with current item count
+    try { await useDashboardStore().addRepo(info.path, undefined, info.item_count) } catch { /* ignore */ }
     return info
   }
 
