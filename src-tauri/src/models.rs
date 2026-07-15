@@ -105,11 +105,11 @@ pub struct AddonRef {
 pub struct WorkspaceConfig {
     pub name: String,
     pub icon: String,
-    #[serde(default)]
+    #[serde(default, rename = "itemTypes")]
     pub item_types: Vec<String>,       // item type names, empty = all
-    #[serde(rename = "centerTabs")]
+    #[serde(default, rename = "centerTabs")]
     pub center_tabs: Vec<CenterTab>,
-    #[serde(rename = "defaultTab")]
+    #[serde(default, rename = "defaultTab")]
     pub default_tab: String,
     #[serde(default, rename = "rightPanelAddons")]
     pub right_panel_addons: Vec<AddonRef>,
@@ -119,9 +119,10 @@ pub struct WorkspaceConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkspaceSummary {
-    pub name: String,
+    pub name: String,        // display name from config (e.g. "日程管理")
+    pub key: String,         // unique identifier / filename stem (e.g. "schedule")
     pub icon: String,
-    pub is_default: bool,
+    pub is_default: bool,    // matches state.json active_workspace
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -131,10 +132,18 @@ pub struct PluginManifest {
     pub title: String,
     pub icon: String,
     pub extends: String,
-    #[serde(default)]
+    #[serde(default, rename = "requiresFields")]
     pub requires_fields: Vec<String>,
     #[serde(default)]
     pub config: Option<serde_json::Value>,
+    #[serde(default)]
+    pub author: String,
+    #[serde(default)]
+    pub description: String,
+    #[serde(default)]
+    pub homepage: Option<String>,
+    #[serde(default)]
+    pub icon_file: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -165,3 +174,37 @@ pub struct PresetFieldTemplate {
     pub icon: String,
     pub label: String,
 }
+
+// ── Plugin marketplace & reference tracking ──
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PluginIndex {
+    pub version: u32,
+    pub plugins: Vec<PluginIndexEntry>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PluginIndexEntry {
+    pub name: String,
+    pub version: String,
+    pub title: String,
+    pub author: String,
+    pub description: String,
+    pub icon: String,
+    pub extends: String,
+    #[serde(default, rename = "requiresFields")]
+    pub requires_fields: Vec<String>,
+    #[serde(rename = "downloadUrl")]
+    pub download_url: String,
+    pub sha256: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct PluginUsage {
+    #[serde(default)]
+    pub repos: Vec<String>,
+    #[serde(default)]
+    pub presets: Vec<String>,
+}
+
+pub type RefTable = std::collections::HashMap<String, PluginUsage>;
