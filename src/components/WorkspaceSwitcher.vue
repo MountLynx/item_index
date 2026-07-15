@@ -6,9 +6,9 @@
       <TablerIcon name="chevron-down" :size="12" />
     </button>
     <div v-if="open" class="ws-drop">
-      <div v-for="ws in wsStore.workspaces" :key="ws.name" class="ws-item"
-        :class="{ active: ws.name === wsStore.activeName }"
-        @click="switchTo(ws.name)">
+      <div v-for="ws in wsStore.workspaces" :key="ws.key" class="ws-item"
+        :class="{ active: ws.key === wsStore.activeName }"
+        @click="switchTo(ws.key)">
         <TablerIcon :name="ws.icon" :size="16" />
         <span>{{ ws.name }}</span>
         <span v-if="ws.is_default" class="ws-badge">默认</span>
@@ -33,7 +33,7 @@ const open = ref(false)
 const openSettings = inject<() => void>('openSettings', () => {})
 
 const activeWs = computed(() =>
-  wsStore.workspaces.find(w => w.name === wsStore.activeName)
+  wsStore.workspaces.find(w => w.key === wsStore.activeName)
 )
 
 async function switchTo(name: string) {

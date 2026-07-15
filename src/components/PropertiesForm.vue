@@ -3,13 +3,13 @@
     <div class="field" v-for="field in detail.item_type.fields" :key="field.id">
       <label class="field-label"><TablerIcon :name="field.icon" :size="14" /> {{ field.name }}</label>
       <div v-if="field.field_type === 'text'" class="field-input-wrap">
-        <input :value="getValue(field.name)" @input="setValue(field.name, ($event.target as HTMLInputElement).value)" @blur="save" :placeholder="field.name" />
+                <input :value="getValue(field.name)" @input="setValue(field.name, ($event.target as HTMLInputElement).value)" @blur="save" :placeholder="field.name" />
       </div>
       <div v-else-if="field.field_type === 'number'" class="field-input-wrap">
-        <input type="number" :value="getValue(field.name)" @input="setValue(field.name, ($event.target as HTMLInputElement).value)" @blur="save" :placeholder="field.name" />
+        <input type="number" :value="getValue(field.name)" @input="setValue(field.name, ($event.target as HTMLInputElement).value, 'number')" @blur="save" :placeholder="field.name" />
       </div>
       <div v-else-if="field.field_type === 'date'" class="field-input-wrap">
-        <input type="date" :value="getValue(field.name)" @input="setValue(field.name, ($event.target as HTMLInputElement).value)" @blur="save" />
+        <input type="date" :value="getDateValue(field.name)" @input="setValue(field.name, ($event.target as HTMLInputElement).value)" @blur="save" />
       </div>
       <label v-else-if="field.field_type === 'checkbox'" class="checkbox-wrap">
         <input type="checkbox" :checked="!!getValue(field.name)" @change="toggleCheck(field.name)" />
@@ -30,11 +30,34 @@ const itemStore = useItemStore()
 
 function getValue(name: string): string {
   const p = props.detail?.item.properties as Record<string, unknown>
-  return String(p?.[name] ?? '')
+  const v = p?.[name]
+  if (v === null || v === undefined) return ''
+  return String(v)
 }
-function setValue(name: string, value: string) {
+/** Extract YYYY-MM-DD from stored value (handles ISO strings, Bug #8) */
+function getDateValue(name: string): string {
+  const p = props.detail?.item.properties as Record<string, unknown>
+  const v = p?.[name]
+  if (!v) return ''
+  const s = String(v)
+  // Already YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10)
+  // Try parsing as ISO
+  try {
+    const d = new Date(s)
+    if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10)
+  } catch {}
+  return s.slice(0, 10)
+}
+function setValue(name: string, value: string, fieldType?: string) {
   const p = props.detail!.item.properties as Record<string, unknown>
-  p[name] = value
+  if (fieldType === 'number') {
+    p[name] = value === '' ? null : Number(value)  // Bug #7: store as number
+  } else if (fieldType === 'date') {
+    p[name] = value  // YYYY-MM-DD from date input
+  } else {
+    p[name] = value
+  }
 }
 function toggleCheck(name: string) {
   const p = props.detail!.item.properties as Record<string, unknown>

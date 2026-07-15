@@ -36,7 +36,7 @@ exports.default = function (Vue) {
       // Group items by date string (YYYY-MM-DD)
       var byDate = computed(function () {
         var map = new Map();
-        var arr = items.value;
+        var arr = (items && items.value) || [];
         for (var i = 0; i < arr.length; i++) {
           var d = getDateField(arr[i]);
           if (d) {
@@ -106,7 +106,7 @@ exports.default = function (Vue) {
       return function () {
         var year = viewDate.value.getFullYear();
         var month = viewDate.value.getMonth();
-        var fo = filteredOut.value;
+        var fo = (filteredOut && filteredOut.value) || { count: 0, reason: '' };
 
         return h('div', { class: 'cal' }, [
           // Header

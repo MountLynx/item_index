@@ -47,17 +47,21 @@ export function buildPluginContext(
     if (!manifest.requiresFields || manifest.requiresFields.length === 0) {
       return { count: 0, reason: '' }
     }
-    const count = allItems.value.length - filteredItems.value.length
-    const fieldNames = manifest.requiresFields.map(f => {
-      switch (f) {
-        case 'date': return '日期'
-        case 'number': return '数字'
-        case 'text': return '文本'
-        case 'checkbox': return '复选框'
-        default: return f
-      }
-    }).join('/')
-    return { count, reason: `缺少${fieldNames}字段` }
+    try {
+      const count = allItems.value.length - filteredItems.value.length
+      const fieldNames = manifest.requiresFields.map(f => {
+        switch (f) {
+          case 'date': return '日期'
+          case 'number': return '数字'
+          case 'text': return '文本'
+          case 'checkbox': return '复选框'
+          default: return f
+        }
+      }).join('/')
+      return { count, reason: `缺少${fieldNames}字段` }
+    } catch {
+      return { count: 0, reason: '' }
+    }
   })
 
   return {

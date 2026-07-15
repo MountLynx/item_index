@@ -145,12 +145,12 @@
                 @back="editingWorkspace = null"
               />
               <div v-else class="ws-list">
-                <div v-for="ws in workspaceStore.workspaces" :key="ws.name" class="ws-card"
-                  @click="editWorkspace(ws.name)">
+                <div v-for="ws in workspaceStore.workspaces" :key="ws.key" class="ws-card"
+                  @click="editWorkspace(ws.key)">
                   <TablerIcon :name="ws.icon" :size="20" />
                   <span class="ws-name">{{ ws.name }}</span>
                   <span v-if="ws.is_default" class="ws-df">默认</span>
-                  <button class="icon-btn sm" @click.stop="deleteWs(ws.name)" :disabled="workspaceStore.workspaces.length <= 1">
+                  <button class="icon-btn sm" @click.stop="deleteWs(ws.key)" :disabled="workspaceStore.workspaces.length <= 1">
                     <TablerIcon name="trash" :size="14" />
                   </button>
                 </div>
@@ -159,6 +159,10 @@
                   <button @click="showPresetPicker = true">🧩 从预设安装</button>
                 </div>
               </div>
+            </div>
+            <!-- Plugins tab -->
+            <div v-else-if="activeTab === 'plugins'" class="tab-panel">
+              <PluginsPanel ref="pluginsPanelRef" />
             </div>
           </div>
         </div>
@@ -176,10 +180,29 @@
           </div>
         </div>
 
-        <!-- Footer -->
-        <div class="settings-footer">
+        <!-- Footer (hidden on workspace tab which has its own save/cancel) -->
+        <div v-if="activeTab !== 'workspace'" class="settings-footer">
           <button @click="onCancel">取消</button>
           <button class="primary" @click="onSave">保存</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Inline prompt modal (replaces window.prompt blocked by Tauri) -->
+    <div v-if="promptState" class="preset-modal" @click.self="closePrompt(null)">
+      <div class="prompt-window">
+        <h3>{{ promptState.title }}</h3>
+        <input
+          ref="promptInput"
+          v-model="promptInputVal"
+          class="prompt-input"
+          :placeholder="promptState.placeholder"
+          @keydown.enter="closePrompt(promptInputVal || null)"
+          @keydown.escape="closePrompt(null)"
+        />
+        <div class="prompt-actions">
+          <button @click="closePrompt(null)">取消</button>
+          <button class="primary" @click="closePrompt(promptInputVal || null)">确定</button>
         </div>
       </div>
     </div>
@@ -193,8 +216,10 @@ import { useSettingsStore, parseCSSVariables } from '@/stores/settings'
 import { useThemeStore } from '@/stores/theme'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { invoke } from '@tauri-apps/api/core'
+import { ask, message } from '@tauri-apps/plugin-dialog'
 import TablerIcon from './TablerIcon.vue'
 import WorkspaceEditor from './WorkspaceEditor.vue'
+import PluginsPanel from './PluginsPanel.vue'
 import type { PresetSummary, WorkspaceConfig } from '@/types/bindings'
 
 const settingsStore = useSettingsStore()
@@ -206,6 +231,7 @@ const tabs = [
   { id: 'general', icon: 'settings', label: '通用' },
   { id: 'theme', icon: 'palette', label: '主题' },
   { id: 'workspace', icon: 'layout', label: '工作区' },
+  { id: 'plugins', icon: 'puzzle', label: '插件' },
 ]
 
 // Workspace management
@@ -214,14 +240,22 @@ const showPresetPicker = ref(false)
 const presets = ref<PresetSummary[]>([])
 
 watch(() => showPresetPicker.value, async (v) => {
-  if (v) presets.value = await invoke<PresetSummary[]>('list_workspace_presets')
+  if (v) {
+    try {
+      presets.value = await invoke<PresetSummary[]>('list_workspace_presets')
+    } catch (e) {
+      console.error('[settings] Failed to load presets:', e)
+      presets.value = []
+    }
+  }
 })
 
-function newWorkspace() {
-  const name = prompt('输入工作区名称：')
-  if (!name?.trim()) return
+async function newWorkspace() {
+  const raw = await promptInline('新建工作区', '工作区名称')
+  const name = raw?.trim()
+  if (!name) return
   const cfg: WorkspaceConfig = {
-    name: name.trim(),
+    name,
     icon: 'layout',
     itemTypes: [],
     centerTabs: [{ type: 'list', label: '列表', icon: 'list' }],
@@ -229,23 +263,48 @@ function newWorkspace() {
     rightPanelAddons: [],
     sidebarAddons: [],
   }
-  workspaceStore.save(cfg)
+  await workspaceStore.save(cfg)
 }
 
 async function deleteWs(name: string) {
-  if (!confirm(`确定删除工作区 "${name}"？`)) return
-  try { await workspaceStore.remove(name) } catch (e) { alert('' + e) }
+  const ok = await ask(`确定删除工作区 "${name}"？`, { title: '删除工作区', kind: 'warning' })
+  if (!ok) return
+  try {
+    await workspaceStore.remove(name)
+  } catch (e) {
+    await message(String(e), { title: '删除失败', kind: 'error' })
+  }
 }
 
 function editWorkspace(name: string) {
   editingWorkspace.value = name
 }
 
+// Inline prompt modal (Tauri blocks window.prompt)
+const promptState = ref<{ title: string; placeholder: string; resolve: (v: string | null) => void } | null>(null)
+const promptInputVal = ref('')
+const promptInput = ref<HTMLInputElement | null>(null)
+function promptInline(title: string, placeholder: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    promptInputVal.value = ''
+    promptState.value = { title, placeholder, resolve }
+    // Focus input after render
+    setTimeout(() => promptInput.value?.focus(), 0)
+  })
+}
+function closePrompt(value: string | null) {
+  if (promptState.value) promptState.value.resolve(value)
+  promptState.value = null
+  promptInputVal.value = ''
+}
+
 async function installPreset(name: string) {
   try {
     await workspaceStore.installFromPreset(name)
     showPresetPicker.value = false
-  } catch (e) { alert('' + e) }
+  } catch (e) {
+    await message(String(e), { title: '安装预设失败', kind: 'error' })
+  }
 }
 
 const fontSizes = ['small', 'medium', 'large'] as const
@@ -371,18 +430,20 @@ function onSyncFromCSS(): void {
   settingsStore.applyTheme()
 }
 
-function onSaveAs(): void {
-  const name = prompt('输入预设名称：')
-  if (!name?.trim()) return
-  const id = settingsStore.createPreset(name.trim(), localCSS.value)
+async function onSaveAs(): Promise<void> {
+  const raw = await promptInline('保存主题预设', '预设名称')
+  const name = raw?.trim()
+  if (!name) return
+  const id = settingsStore.createPreset(name, localCSS.value)
   selectedPresetId.value = id
 }
 
-function onDeletePreset(): void {
+async function onDeletePreset(): Promise<void> {
   if (!selectedPresetId.value) return
   const preset = settingsStore.presets.find(p => p.id === selectedPresetId.value)
   if (!preset) return
-  if (!confirm(`确定删除预设 "${preset.name}"？`)) return
+  const ok = await ask(`确定删除预设 "${preset.name}"？`, { title: '删除预设', kind: 'warning' })
+  if (!ok) return
   settingsStore.deletePreset(selectedPresetId.value)
   selectedPresetId.value = null
   localCSS.value = ''
@@ -655,4 +716,43 @@ defineExpose({ open, close })
 .preset-item:hover { background: var(--surface-hover); }
 .preset-item strong { font-size: var(--fs-sm); }
 .preset-item small { font-size: var(--fs-xs); color: var(--text-muted); }
+
+/* Inline prompt modal */
+.prompt-window {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 20px; min-width: 320px;
+  box-shadow: var(--shadow-lg);
+}
+.prompt-window h3 {
+  margin: 0 0 12px;
+  font-size: var(--fs-base);
+  font-weight: var(--fw-semibold);
+}
+.prompt-input {
+  width: 100%; height: 36px;
+  padding: 0 10px;
+  font-size: var(--fs-sm);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--bg); color: var(--text);
+  margin-bottom: 12px;
+}
+.prompt-input:focus { outline: none; border-color: var(--accent); }
+.prompt-actions {
+  display: flex; justify-content: flex-end; gap: 8px;
+}
+.prompt-actions button {
+  height: 32px; padding: 0 14px;
+  font-size: var(--fs-sm);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface); color: var(--text);
+  cursor: pointer;
+}
+.prompt-actions button.primary {
+  background: var(--accent); color: var(--accent-fg);
+  border-color: var(--accent);
+}
 </style>

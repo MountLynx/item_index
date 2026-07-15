@@ -37,7 +37,7 @@ pub async fn list_workspaces(state: State<'_, AppState>) -> Result<Vec<Workspace
 
     // Read active workspace from state.json
     let state_json_path = Path::new(&get_repo_path(&state)?).join(".index").join("state.json");
-    let active: String = if state_json_path.exists() {
+    let mut active: String = if state_json_path.exists() {
         let raw = std::fs::read_to_string(&state_json_path).map_err(|e| e.to_string())?;
         let v: serde_json::Value = serde_json::from_str(&raw).map_err(|e| e.to_string())?;
         v.get("active_workspace").and_then(|v| v.as_str()).unwrap_or("default").to_string()
@@ -54,10 +54,11 @@ pub async fn list_workspaces(state: State<'_, AppState>) -> Result<Vec<Workspace
         if path.extension().map_or(false, |ext| ext == "json") {
             let raw = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
             if let Ok(cfg) = serde_json::from_str::<WorkspaceConfig>(&raw) {
-                let name = path.file_stem().unwrap().to_string_lossy().to_string();
+                let file_key = path.file_stem().unwrap().to_string_lossy().to_string();
                 results.push(WorkspaceSummary {
-                    is_default: name == active,
-                    name,
+                    is_default: file_key == active,
+                    name: cfg.name,
+                    key: file_key,
                     icon: cfg.icon,
                 });
             }
@@ -67,10 +68,39 @@ pub async fn list_workspaces(state: State<'_, AppState>) -> Result<Vec<Workspace
     // Auto-create default workspace if empty
     if results.is_empty() {
         let cfg = default_workspace();
-        let p = dir.join("default.json");
+        let filename = format!("{}.json", &cfg.name);
+        let p = dir.join(&filename);
         let json = serde_json::to_string_pretty(&cfg).map_err(|e| e.to_string())?;
         std::fs::write(&p, &json).map_err(|e| e.to_string())?;
-        results.push(WorkspaceSummary { name: "default".into(), icon: "layout".into(), is_default: true });
+        results.push(WorkspaceSummary {
+            name: cfg.name.clone(),
+            key: cfg.name,
+            icon: "layout".into(),
+            is_default: true,
+        });
+        // Update active so it matches the auto-created file
+        active = results[0].key.clone();
+    }
+
+    // Sync state.json: if it doesn't have active_workspace, set it to the active one.
+    // Also: when we just auto-created default and state.json didn't have the key
+    // (e.g. older repo or fresh create_repo), persist it so the next open restores correctly.
+    if state_json_path.exists() {
+        let raw = std::fs::read_to_string(&state_json_path).unwrap_or_default();
+        let mut v: serde_json::Value = serde_json::from_str(&raw).unwrap_or_else(|_| serde_json::json!({}));
+        if !v.get("active_workspace").is_some() {
+            if let Some(map) = v.as_object_mut() {
+                map.insert("active_workspace".to_string(), serde_json::Value::String(active.clone()));
+            }
+            let updated = serde_json::to_string_pretty(&v).unwrap_or_default();
+            let _ = std::fs::write(&state_json_path, updated);
+        }
+    } else {
+        // state.json shouldn't be missing in normal flow, but create it just in case
+        let _ = std::fs::write(
+            &state_json_path,
+            serde_json::json!({"theme": "light", "active_workspace": active}).to_string(),
+        );
     }
 
     Ok(results)

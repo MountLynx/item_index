@@ -1,6 +1,6 @@
 <template>
   <div class="app">
-    <RepoDashboard v-if="!repoStore.isOpen" @repo-opened="onRepoOpened" />
+    <RepoDashboard v-if="!repoStore.isOpen" />
 
     <template v-else>
       <Titlebar @new-item="showNewItem = true" @open-type-manager="rightTab = 'types'" />
@@ -19,7 +19,7 @@
 </template>
 
 <script setup lang="ts">
-import { provide, ref, onMounted } from 'vue'
+import { provide, ref, onMounted, watch } from 'vue'
 import { useRepoStore } from '@/stores/repo'
 import { useThemeStore } from '@/stores/theme'
 import { useSettingsStore } from '@/stores/settings'
@@ -53,7 +53,12 @@ const toastRef = ref<InstanceType<typeof Toast> | null>(null)
 const settingsRef = ref<InstanceType<typeof SettingsModal> | null>(null)
 provide('openSettings', () => settingsRef.value?.open())
 
-async function onRepoOpened() {
+// Use watch instead of @repo-opened event to avoid timing issues where
+// RepoDashboard is unmounted before the event reaches App.vue (Bug #9).
+let repoOpenedHandled = false
+watch(() => repoStore.isOpen, async (isOpen) => {
+  if (!isOpen || repoOpenedHandled) return
+  repoOpenedHandled = true
   await Promise.all([
     typeStore.fetchAll(),
     groupStore.fetchAll(),
@@ -64,7 +69,7 @@ async function onRepoOpened() {
   await workspaceStore.loadAll()
   await settingsStore.loadActivePresetFromRepo()
   settingsStore.applyTheme()
-}
+})
 
 onMounted(() => {
   settingsStore.load()

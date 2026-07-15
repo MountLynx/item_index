@@ -3,6 +3,12 @@
    Icons: Tabler Icons (tabler.io/icons)
    ═══════════════════════════════════════════ */
 
+/* Override tabler-icons font loading to eliminate Chrome slow-network intervention warning */
+@font-face {
+  font-family: 'tabler-icons';
+  font-display: swap;
+}
+
 :root {
   /* Neutral */
   --white:    #FFFFFF;

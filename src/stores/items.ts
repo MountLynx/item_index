@@ -12,10 +12,28 @@ export const useItemStore = defineStore('items', () => {
   const loadingDetail = ref(false)
 
   async function fetchList(groupId?: number | null, tagId?: number | null, typeIds?: number[]): Promise<void> {
+    // Auto-resolve typeIds from active workspace when not explicitly provided
+    // (centralized workspace filter — all callers benefit without manual wiring)
+    let resolvedTypeIds = typeIds
+    if (typeIds === undefined) {
+      try {
+        const { useWorkspaceStore } = await import('@/stores/workspace')
+        const { useTypeStore } = await import('@/stores/types')
+        const ws = useWorkspaceStore()
+        const itemTypes = ws.active?.itemTypes
+        if (itemTypes && itemTypes.length > 0) {
+          const typeStore = useTypeStore()
+          const ids = itemTypes
+            .map((tn: string) => typeStore.types.find((t: any) => t.name === tn)?.id)
+            .filter((id: any): id is number => id !== undefined)
+          if (ids.length > 0) resolvedTypeIds = ids
+        }
+      } catch { /* ignore — no workspace loaded, show all */ }
+    }
     items.value = await invoke<Item[]>('list_items', {
       groupId: groupId ?? null,
       tagId: tagId ?? null,
-      typeIds: typeIds ?? null,
+      typeIds: resolvedTypeIds ?? null,
     })
   }
 
