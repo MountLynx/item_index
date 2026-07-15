@@ -3,10 +3,7 @@
     <RepoDashboard v-if="!repoStore.isOpen" @repo-opened="onRepoOpened" />
 
     <template v-else>
-      <div class="topbar-row">
-        <Titlebar @new-item="showNewItem = true" @open-type-manager="rightTab = 'types'" />
-        <WorkspaceSwitcher />
-      </div>
+      <Titlebar @new-item="showNewItem = true" @open-type-manager="rightTab = 'types'" />
       <div class="main">
         <Sidebar />
         <CenterPanel @new-item="showNewItem = true" />
@@ -39,7 +36,6 @@ import RightPanel from '@/components/RightPanel.vue'
 import StatusBar from '@/components/StatusBar.vue'
 import NewItemDialog from '@/components/NewItemDialog.vue'
 import Toast from '@/components/Toast.vue'
-import WorkspaceSwitcher from '@/components/WorkspaceSwitcher.vue'
 import { useWorkspaceStore } from '@/stores/workspace'
 
 const repoStore = useRepoStore()
@@ -83,7 +79,5 @@ onMounted(() => {
 
 <style scoped>
 .app { height: 100vh; display: flex; flex-direction: column; }
-.topbar-row { display: flex; align-items: center; }
 .main { display: flex; flex: 1; overflow: hidden; }
-
 </style>

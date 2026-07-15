@@ -1,7 +1,8 @@
 <template>
   <header class="titlebar" data-tauri-drag-region>
-    <!-- Left: Logo + repo name -->
+    <!-- Left: Workspace switcher + repo name -->
     <div class="tb-left">
+      <WorkspaceSwitcher />
       <TablerIcon name="database" :size="18" :stroke="1.5" />
       <span class="tb-repo">{{ repoStore.repoPath ? basename(repoStore.repoPath) : 'Index' }}</span>
     </div>
@@ -44,6 +45,7 @@ import { useRepoStore } from '@/stores/repo'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { useI18n } from 'vue-i18n'
 import TablerIcon from './TablerIcon.vue'
+import WorkspaceSwitcher from './WorkspaceSwitcher.vue'
 
 useI18n()
 const repoStore = useRepoStore()
