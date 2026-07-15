@@ -74,3 +74,47 @@ pub async fn check_plugin_usage(
 ) -> Result<crate::models::PluginUsage, String> {
     Ok(refs::get_usage(&state, &plugin_name))
 }
+
+/// Uninstall a plugin from the current repo.
+/// Blocks if any workspace in this repo still references the plugin.
+#[tauri::command]
+pub async fn uninstall_plugin_from_repo(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    plugin_name: String,
+) -> Result<(), String> {
+    let repo_path = get_repo_path(&state)?;
+    let workspaces_dir = std::path::Path::new(&repo_path)
+        .join(".index").join("workspaces");
+
+    // Check if any workspace references this plugin
+    if workspaces_dir.exists() {
+        for entry in std::fs::read_dir(&workspaces_dir).map_err(|e| e.to_string())?.flatten() {
+            let path = entry.path();
+            if path.extension().map_or(false, |e| e == "json") {
+                if let Ok(raw) = std::fs::read_to_string(&path) {
+                    let lower = raw.to_lowercase();
+                    if lower.contains(&format!("\"plugin\":\"{}\"", plugin_name.to_lowercase()))
+                        || lower.contains(&format!("\"plugin\": \"{}\"", plugin_name.to_lowercase()))
+                    {
+                        let stem = path.file_stem().unwrap_or_default().to_string_lossy();
+                        return Err(format!(
+                            "Plugin '{}' is still used by workspace '{}'. Remove it from the workspace first.",
+                            plugin_name, stem
+                        ));
+                    }
+                }
+            }
+        }
+    }
+
+    let dir = plugins_dir(&state)?.join(&plugin_name);
+    if !dir.exists() {
+        return Err(format!("Plugin '{}' is not installed in this repo", plugin_name));
+    }
+    std::fs::remove_dir_all(&dir).map_err(|e| e.to_string())?;
+
+    // Update refs
+    refs::remove_repo_ref(&app, &state, &plugin_name, &repo_path)?;
+    Ok(())
+}
