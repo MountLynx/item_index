@@ -135,6 +135,8 @@
                   <button class="sm" @click="onSyncFromCSS">与自定义主题保持一致</button>
                 </div>
               </div>
+            </div>
+
             <!-- Workspace tab -->
             <div v-else-if="activeTab === 'workspace'" class="tab-panel">
               <WorkspaceEditor
