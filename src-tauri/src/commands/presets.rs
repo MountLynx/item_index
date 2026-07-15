@@ -1,6 +1,7 @@
 use std::path::Path;
 use tauri::{AppHandle, Manager, State};
-use crate::models::{PresetSummary, WorkspaceConfig};
+use crate::models::{PresetSummary, WorkspaceConfig, PluginManifest};
+use crate::refs;
 use crate::state::AppState;
 
 fn get_pool(state: &State<'_, AppState>) -> Result<sqlx::SqlitePool, String> {
@@ -53,6 +54,144 @@ fn repo_workspaces_dir(state: &State<'_, AppState>) -> Result<std::path::PathBuf
 fn global_plugin_store(app: &AppHandle) -> Result<std::path::PathBuf, String> {
     app.path().app_data_dir().map_err(|e| e.to_string())
         .map(|d| d.join("plugin-store"))
+}
+
+/// List manifests in the global plugin store (available plugins).
+#[tauri::command]
+pub async fn list_global_plugins(app: AppHandle) -> Result<Vec<PluginManifest>, String> {
+    let dir = global_plugin_store(&app)?;
+    let mut results = vec![];
+    if !dir.exists() { return Ok(results); }
+    let entries = std::fs::read_dir(&dir).map_err(|e| e.to_string())?;
+    for entry in entries.flatten() {
+        let entry_path = entry.path();
+        if !entry_path.is_dir() { continue; }
+        let manifest_path = entry_path.join("manifest.json");
+        if !manifest_path.exists() { continue; }
+        match std::fs::read_to_string(&manifest_path)
+            .map_err(|e| e.to_string())
+            .and_then(|raw| serde_json::from_str::<PluginManifest>(&raw).map_err(|e| e.to_string()))
+        {
+            Ok(m) => {
+                let dir_name = entry.file_name().to_string_lossy().to_string();
+                if m.name == dir_name {
+                    results.push(m);
+                }
+            }
+            Err(_) => {}
+        }
+    }
+    Ok(results)
+}
+
+/// Install (copy) a plugin from the global store into the current repo.
+#[tauri::command]
+pub async fn install_plugin(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    plugin_name: String,
+) -> Result<(), String> {
+    if !is_safe_plugin_name(&plugin_name) {
+        return Err(format!("Invalid plugin name: '{}'", plugin_name));
+    }
+    let src = global_plugin_store(&app)?.join(&plugin_name);
+    if !src.exists() {
+        return Err(format!("Plugin '{}' not found in global store", plugin_name));
+    }
+    let dst = repo_plugins_dir(&state)?.join(&plugin_name);
+    if dst.exists() {
+        return Err(format!("Plugin '{}' is already installed in this repo", plugin_name));
+    }
+    copy_dir(&src, &dst)?;
+    let repo = get_repo_path(&state)?;
+    refs::add_repo_ref(&app, &state, &plugin_name, &repo)?;
+    Ok(())
+}
+
+/// Import a plugin folder into the global store.
+#[tauri::command]
+pub async fn install_plugin_to_global(
+    app: AppHandle,
+    source_path: String,
+) -> Result<(), String> {
+    let src = Path::new(&source_path);
+    if !src.is_dir() {
+        return Err("Source is not a directory".to_string());
+    }
+    let manifest_path = src.join("manifest.json");
+    if !manifest_path.exists() {
+        return Err("No manifest.json found in plugin folder".to_string());
+    }
+    let raw = std::fs::read_to_string(&manifest_path)
+        .map_err(|e| format!("Cannot read manifest: {}", e))?;
+    let manifest: PluginManifest = serde_json::from_str(&raw)
+        .map_err(|e| format!("Invalid manifest: {}", e))?;
+    if !is_safe_plugin_name(&manifest.name) {
+        return Err(format!("Invalid plugin name: '{}'", manifest.name));
+    }
+    // Enforce name == directory name
+    let dir_name = src.file_name().unwrap_or_default().to_string_lossy();
+    if manifest.name != dir_name {
+        return Err(format!("Plugin name '{}' != directory name '{}'", manifest.name, dir_name));
+    }
+    let dst = {
+        let dir = global_plugin_store_write(&app)?;
+        let d = dir.join(&manifest.name);
+        if d.exists() {
+            return Err(format!("Plugin '{}' already exists in global store", manifest.name));
+        }
+        d
+    };
+    copy_dir(src, &dst)?;
+    // Initialize an empty reference entry for the new plugin
+    {
+        let app_state = app.state::<AppState>();
+        let mut refs = app_state.plugin_refs.lock().unwrap().clone();
+        refs.entry(manifest.name.clone()).or_default();
+        refs::save_refs(&app, &refs)?;
+        *app_state.plugin_refs.lock().unwrap() = refs;
+    }
+    Ok(())
+}
+
+/// Returns the global plugin store path, creating it if necessary.
+fn global_plugin_store_write(app: &AppHandle) -> Result<std::path::PathBuf, String> {
+    let dir = global_plugin_store(app)?;
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    Ok(dir)
+}
+
+/// Delete a plugin from the global store.
+#[tauri::command]
+pub async fn delete_plugin(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    plugin_name: String,
+) -> Result<(), String> {
+    if !is_safe_plugin_name(&plugin_name) {
+        return Err(format!("Invalid plugin name: '{}'", plugin_name));
+    }
+    // Check usage before deleting
+    let usage = refs::get_usage(&state, &plugin_name);
+    if !usage.repos.is_empty() || !usage.presets.is_empty() {
+        return Err(format!(
+            "Plugin '{}' is still in use.\nRepos: {:?}\nPresets: {:?}",
+            plugin_name, usage.repos, usage.presets
+        ));
+    }
+    let dir = global_plugin_store(&app)?.join(&plugin_name);
+    if !dir.exists() {
+        return Err(format!("Plugin '{}' not found in global store", plugin_name));
+    }
+    std::fs::remove_dir_all(&dir).map_err(|e| e.to_string())?;
+    // Remove ref entry
+    {
+        let mut refs = state.plugin_refs.lock().unwrap().clone();
+        refs.remove(&plugin_name);
+        refs::save_refs(&app, &refs)?;
+        *state.plugin_refs.lock().unwrap() = refs;
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -176,8 +315,8 @@ pub async fn install_preset(
         }
     }
 
-    // 3. Write workspace config to repo
-    let ws_path = repo_workspaces_dir(&state)?.join(format!("{}.json", preset_name));
+    // 3. Write workspace config to repo (use config.name as filename, not preset_name)
+    let ws_path = repo_workspaces_dir(&state)?.join(format!("{}.json", workspace_cfg.name));
     let json = serde_json::to_string_pretty(&workspace_cfg)
         .map_err(|e| format!("Failed to serialize workspace config: {}", e))?;
     std::fs::write(&ws_path, &json)
@@ -202,18 +341,84 @@ pub async fn export_preset(
     let ws_path = ws_dir.join(format!("{}.json", name));
     let raw = std::fs::read_to_string(&ws_path)
         .map_err(|e| format!("Workspace not found at '{}': {}", ws_path.display(), e))?;
+    let mut cfg: serde_json::Value = serde_json::from_str(&raw)
+        .map_err(|e| format!("Failed to parse workspace config '{}': {}", ws_path.display(), e))?;
+
+    // Scan installed plugins from repo plugins dir
+    let plugin_names: Vec<String> = {
+        let plugins_dir = repo_plugins_dir(&state)?;
+        if plugins_dir.exists() {
+            let mut names = vec![];
+            if let Ok(entries) = std::fs::read_dir(&plugins_dir) {
+                for entry in entries.flatten() {
+                    if entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
+                        if entry.path().join("manifest.json").exists() {
+                            names.push(entry.file_name().to_string_lossy().to_string());
+                        }
+                    }
+                }
+            }
+            names
+        } else {
+            vec![]
+        }
+    };
+
+    // Update preset refs for each plugin
+    for pname in &plugin_names {
+        refs::add_preset_ref(&app, &state, pname, &name)?;
+    }
+
+    // Scan item types from DB
+    let pool = get_pool(&state)?;
+    let item_types_raw: Vec<(i64, String, String)> = sqlx::query_as(
+        "SELECT id, name, icon FROM item_types ORDER BY id"
+    )
+    .fetch_all(&pool)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    let mut item_types_json: Vec<serde_json::Value> = vec![];
+    for (tid, tname, ticon) in &item_types_raw {
+        let fields: Vec<(String, String, String, String)> = sqlx::query_as(
+            "SELECT name, field_type, icon, label FROM fields WHERE type_id = ? ORDER BY position"
+        )
+        .bind(tid)
+        .fetch_all(&pool)
+        .await
+        .map_err(|e| e.to_string())?;
+
+        let fields_json: Vec<serde_json::Value> = fields
+            .into_iter()
+            .map(|(fname, ftype, ficon, flabel)| {
+                serde_json::json!({
+                    "name": fname,
+                    "field_type": ftype,
+                    "icon": ficon,
+                    "label": flabel,
+                })
+            })
+            .collect();
+
+        item_types_json.push(serde_json::json!({
+            "name": tname,
+            "icon": ticon,
+            "fields": fields_json,
+        }));
+    }
+
+    // Build bundle with actual data (Bug #6)
+    let bundle = serde_json::json!({
+        "plugins": plugin_names,
+        "itemTypes": item_types_json,
+    });
+
+    if let serde_json::Value::Object(ref mut map) = cfg {
+        map.insert("bundle".to_string(), bundle);
+    }
 
     // Write to presets dir
     let preset_path = presets_dir(&app)?.join(format!("{}.json", name));
-    // Preserve existing bundle if re-exporting
-    let mut cfg: serde_json::Value = serde_json::from_str(&raw)
-        .map_err(|e| format!("Failed to parse workspace config '{}': {}", ws_path.display(), e))?;
-    if !cfg.as_object().map_or(false, |o| o.contains_key("bundle")) {
-        if let serde_json::Value::Object(ref mut map) = cfg {
-            map.insert("bundle".to_string(), serde_json::json!({"plugins": [], "itemTypes": []}));
-        }
-    }
-
     let json = serde_json::to_string_pretty(&cfg)
         .map_err(|e| format!("Failed to serialize preset: {}", e))?;
     std::fs::write(&preset_path, &json)
