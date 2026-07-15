@@ -27,7 +27,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, shallowRef } from 'vue'
+import { ref, watch, shallowRef, markRaw } from 'vue'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { usePluginLoader } from '@/composables/usePluginLoader'
 import { buildPluginContext } from '@/composables/usePluginContext'
@@ -57,13 +57,14 @@ async function loadActivePlugin() {
     return
   }
 
-  const result = await loadPlugin(tabName)
-  if (result) {
-    pluginComponent.value = result.component
+  try {
+    const result = await loadPlugin(tabName)
+    pluginComponent.value = markRaw(result.component)
     // Find tab config
     const tab = wsStore.active?.centerTabs.find(t => t.plugin === tabName)
+
     pluginContext.value = buildPluginContext(result.manifest, tab?.config || {})
-  } else {
+  } catch {
     pluginComponent.value = null
   }
 }
