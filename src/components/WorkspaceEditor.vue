@@ -59,14 +59,26 @@
         </div>
       </div>
 
-      <!-- Sidebar / RightPanel (placeholder) -->
-      <div class="edit-section muted">
-        <label class="section-label">侧边栏附加 (即将推出)</label>
-        <p class="hint">暂无插件</p>
+      <!-- Sidebar addons -->
+      <div class="edit-section" :class="{ muted: sidebarPlugins.length === 0 }">
+        <label class="section-label">侧边栏附加</label>
+        <p v-if="sidebarPlugins.length === 0" class="hint">暂无侧边栏插件</p>
+        <div v-else v-for="p in sidebarPlugins" :key="p.name" class="check-row">
+          <input type="checkbox" :value="p.name" v-model="sidebarSelected" />
+          <TablerIcon :name="p.icon" :size="14" />
+          <span>{{ p.title }}</span>
+        </div>
       </div>
-      <div class="edit-section muted">
-        <label class="section-label">右侧栏附加 (即将推出)</label>
-        <p class="hint">暂无插件</p>
+
+      <!-- RightPanel addons -->
+      <div class="edit-section" :class="{ muted: rightPanelPlugins.length === 0 }">
+        <label class="section-label">右侧栏附加</label>
+        <p v-if="rightPanelPlugins.length === 0" class="hint">暂无右侧栏插件</p>
+        <div v-else v-for="p in rightPanelPlugins" :key="p.name" class="check-row">
+          <input type="checkbox" :value="p.name" v-model="rightPanelSelected" />
+          <TablerIcon :name="p.icon" :size="14" />
+          <span>{{ p.title }}</span>
+        </div>
       </div>
     </div>
 
@@ -82,6 +94,7 @@
 <script setup lang="ts">
 import { ref, reactive, watch } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
+import { message } from '@tauri-apps/plugin-dialog'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useTypeStore } from '@/stores/types'
 import type { WorkspaceConfig, PluginManifest, CenterTab } from '@/types/bindings'
@@ -94,6 +107,10 @@ const emit = defineEmits<{ back: [] }>()
 const wsStore = useWorkspaceStore()
 const typeStore = useTypeStore()
 const centerPanelPlugins = ref<PluginManifest[]>([])
+const sidebarPlugins = ref<PluginManifest[]>([])
+const rightPanelPlugins = ref<PluginManifest[]>([])
+const sidebarSelected = ref<string[]>([])
+const rightPanelSelected = ref<string[]>([])
 
 const local = reactive<WorkspaceConfig>({
   name: '',
@@ -110,9 +127,18 @@ const newTabLabel = ref('')
 
 async function load() {
   const cfg = await invoke<WorkspaceConfig>('read_workspace', { name: props.workspaceName })
-  Object.assign(local, cfg)
+  // Use splice to preserve reactive array references (avoid Object.assign() issue)
+  local.name = cfg.name || ''
+  local.icon = cfg.icon || 'layout'
+  local.itemTypes.splice(0, local.itemTypes.length, ...(cfg.itemTypes || []))
+  local.centerTabs.splice(0, local.centerTabs.length, ...(cfg.centerTabs || [{ type: 'list', label: '列表', icon: 'list' }]))
+  local.defaultTab = cfg.defaultTab || 'list'
+  local.rightPanelAddons.splice(0, local.rightPanelAddons.length, ...(cfg.rightPanelAddons || []))
+  local.sidebarAddons.splice(0, local.sidebarAddons.length, ...(cfg.sidebarAddons || []))
   const plugins = await invoke<PluginManifest[]>('list_installed_plugins')
   centerPanelPlugins.value = plugins.filter(p => p.extends === 'center-panel')
+  sidebarPlugins.value = plugins.filter(p => p.extends === 'sidebar')
+  rightPanelPlugins.value = plugins.filter(p => p.extends === 'right-panel')
 }
 
 function addTab() {
@@ -130,21 +156,25 @@ function removeTab(i: number) {
 }
 
 async function save() {
-  await wsStore.save({ ...local })
+  await wsStore.save({ ...local }, props.workspaceName)
+  await wsStore.activate(local.name)
   emit('back')
 }
 
 async function setAsDefault() {
-  const name = local.name
+  // save() already activates the workspace (Bug #10) and writes state.json
   await save()
-  await wsStore.activate(name)
   emit('back')
 }
 
 async function exportPreset() {
-  await save()
-  await wsStore.exportAsPreset(local.name)
-  alert(`工作区 "${local.name}" 已导出为预设`)
+  try {
+    await save()
+    await wsStore.exportAsPreset(local.name)
+    await message(`工作区 "${local.name}" 已导出为预设`, { title: '导出预设', kind: 'info' })
+  } catch (e) {
+    await message(`导出失败: ${e}`, { title: '导出预设', kind: 'error' })
+  }
 }
 
 watch(() => props.workspaceName, load, { immediate: true })
