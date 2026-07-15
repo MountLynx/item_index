@@ -134,6 +134,8 @@ pub fn run() {
             commands::presets::install_plugin,
             commands::presets::install_plugin_to_global,
             commands::presets::delete_plugin,
+            commands::marketplace::fetch_marketplace_index,
+            commands::marketplace::download_marketplace_plugin,
         ])
         .setup(|app| {
             // Deploy bundled plugins and presets to app-data on first run
