@@ -90,6 +90,7 @@ export interface WorkspaceConfig {
 
 export interface WorkspaceSummary {
   name: string
+  key: string
   icon: string
   is_default: boolean
 }
@@ -102,10 +103,37 @@ export interface PluginManifest {
   extends: 'center-panel' | 'right-panel' | 'sidebar'
   requiresFields: string[]
   config?: Record<string, unknown>
+  author: string
+  description: string
+  homepage?: string
+  iconFile?: string
 }
 
 export interface PresetSummary {
   name: string
   icon: string
   description: string
+}
+
+export interface PluginIndex {
+  version: number
+  plugins: PluginIndexEntry[]
+}
+
+export interface PluginIndexEntry {
+  name: string
+  version: string
+  title: string
+  author: string
+  description: string
+  icon: string
+  extends: string
+  requiresFields: string[]
+  downloadUrl: string
+  sha256: string
+}
+
+export interface PluginUsage {
+  repos: string[]
+  presets: string[]
 }
