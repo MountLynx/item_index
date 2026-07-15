@@ -134,6 +134,8 @@ pub fn run() {
             commands::presets::install_plugin,
             commands::presets::install_plugin_to_global,
             commands::presets::delete_plugin,
+            commands::plugin::check_plugin_usage,
+            commands::plugin::uninstall_plugin_from_repo,
             commands::marketplace::fetch_marketplace_index,
             commands::marketplace::download_marketplace_plugin,
         ])
