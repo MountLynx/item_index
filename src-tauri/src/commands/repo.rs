@@ -3,6 +3,7 @@ use tauri::State;
 use sqlx::SqlitePool;
 use crate::db;
 use crate::models::RepoInfo;
+use crate::refs;
 use crate::state::AppState;
 
 fn get_pool(state: &State<'_, AppState>) -> Result<SqlitePool, String> {
@@ -104,6 +105,12 @@ pub async fn open_repo(
     std::fs::create_dir_all(&workspaces_dir)
         .map_err(|e| format!("Cannot create workspaces dir: {}", e))?;
 
+    // Ensure state.json exists (backfill for old repos)
+    let state_json_path = index_dir.join("state.json");
+    if !state_json_path.exists() {
+        let _ = std::fs::write(&state_json_path, r#"{"theme":"light"}"#);
+    }
+
     Ok(RepoInfo {
         path,
         item_count: item_count.0,
@@ -112,7 +119,14 @@ pub async fn open_repo(
 }
 
 #[tauri::command]
-pub async fn close_repo(state: State<'_, AppState>) -> Result<(), String> {
+pub async fn close_repo(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    // Clean up plugin reference table for this repo
+    if let Some(path) = state.repo_path.lock().unwrap().clone() {
+        refs::cleanup_repo(&app, &state, &path)?;
+    }
     let pool = state.db.lock().unwrap().take();
     *state.repo_path.lock().unwrap() = None;
     if let Some(pool) = pool {
