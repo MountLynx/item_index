@@ -142,7 +142,7 @@ pub struct PluginManifest {
     pub description: String,
     #[serde(default)]
     pub homepage: Option<String>,
-    #[serde(default)]
+    #[serde(default, rename = "iconFile")]
     pub icon_file: Option<String>,
 }
 
