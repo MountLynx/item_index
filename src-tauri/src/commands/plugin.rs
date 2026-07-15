@@ -2,6 +2,7 @@ use std::path::Path;
 use tauri::State;
 use crate::models::PluginManifest;
 use crate::state::AppState;
+use crate::refs;
 
 fn get_repo_path(state: &State<'_, AppState>) -> Result<String, String> {
     state.repo_path.lock().unwrap().clone().ok_or("No repository open".to_string())
@@ -62,4 +63,14 @@ pub async fn read_plugin_file(
     }
 
     std::fs::read_to_string(&canonical_file).map_err(|e| format!("Read error: {}", e))
+}
+
+#[tauri::command]
+#[allow(unused_variables)]
+pub async fn check_plugin_usage(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    plugin_name: String,
+) -> Result<crate::models::PluginUsage, String> {
+    Ok(refs::get_usage(&state, &plugin_name))
 }

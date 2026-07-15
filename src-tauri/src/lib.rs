@@ -2,6 +2,7 @@ pub mod commands;
 pub mod db;
 pub mod models;
 pub mod safe_path;
+pub mod refs;
 pub mod state;
 
 use state::AppState;
@@ -15,44 +16,59 @@ fn greet(name: &str) -> String {
 /// Copy bundled resources (plugins, presets) from resource dir to app_data_dir.
 /// Skips files that already exist (first-run only).
 fn deploy_bundled_resources(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>> {
-    let resource_dir = app.path().resource_dir()?;
     let app_data = app.path().app_data_dir()?;
 
-    // Only deploy if plugin-store is missing or empty
+    // Use CARGO_MANIFEST_DIR as base — resource_dir() points to target/debug in dev mode
+    let resources = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("resources");
+    let src_plugins = resources.join("plugins");
+    let src_presets = resources.join("presets");
+
     let store_dir = app_data.join("plugin-store");
     let presets_dir = app_data.join("workspace-presets");
 
-    let src_plugins = resource_dir.join("plugins");
-    let src_presets = resource_dir.join("presets");
-
-    if src_plugins.exists() && !store_dir.join("calendar-view").exists() {
-        copy_dir_if_new(&src_plugins, &store_dir);
-    }
-    if src_presets.exists() {
-        std::fs::create_dir_all(&presets_dir).ok();
-        copy_dir_if_new(&src_presets, &presets_dir);
-    }
-    Ok(())
-}
-
-fn copy_dir_if_new(src: &std::path::Path, dst: &std::path::Path) {
-    if !dst.exists() {
-        std::fs::create_dir_all(dst).ok();
-    }
-    for entry in std::fs::read_dir(src).into_iter().flatten().flatten() {
-        let dst_path = dst.join(entry.file_name());
-        if entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
-            // Only copy dir if target doesn't exist (don't overwrite user's plugins)
-            if !dst_path.exists() {
-                copy_dir_if_new(&entry.path(), &dst_path);
+    // Copy plugins
+    if src_plugins.exists() {
+        std::fs::create_dir_all(&store_dir).ok();
+        for entry in std::fs::read_dir(&src_plugins)?.flatten() {
+            let name = entry.file_name();
+            let dst = store_dir.join(&name);
+            // Remove broken entries, then copy only if missing (don't overwrite user changes)
+            if dst.exists() && !dst.is_dir() {
+                std::fs::remove_file(&dst).ok();
             }
-        } else {
-            // Copy file only if target doesn't exist
-            if !dst_path.exists() {
-                std::fs::copy(entry.path(), &dst_path).ok();
+            if !dst.exists() {
+                copy_dir_all(&entry.path(), &dst)?;
             }
         }
     }
+
+    // Copy presets
+    if src_presets.exists() {
+        std::fs::create_dir_all(&presets_dir).ok();
+        for entry in std::fs::read_dir(&src_presets)?.flatten() {
+            let dst = presets_dir.join(entry.file_name());
+            if !dst.exists() {
+                std::fs::copy(&entry.path(), &dst).ok();
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Simple recursive directory copy.
+fn copy_dir_all(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(dst)?;
+    for entry in std::fs::read_dir(src)? {
+        let entry = entry?;
+        let dst_path = dst.join(entry.file_name());
+        if entry.file_type()?.is_dir() {
+            copy_dir_all(&entry.path(), &dst_path)?;
+        } else {
+            std::fs::copy(&entry.path(), &dst_path)?;
+        }
+    }
+    Ok(())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -114,10 +130,21 @@ pub fn run() {
             commands::presets::list_workspace_presets,
             commands::presets::install_preset,
             commands::presets::export_preset,
+            commands::presets::list_global_plugins,
+            commands::presets::install_plugin,
+            commands::presets::install_plugin_to_global,
+            commands::presets::delete_plugin,
         ])
         .setup(|app| {
             // Deploy bundled plugins and presets to app-data on first run
             deploy_bundled_resources(app.handle())?;
+
+            // Load plugin reference table
+            {
+                let app_handle = app.handle().clone();
+                let refs = crate::refs::load_refs(&app_handle).unwrap_or_default();
+                *app.state::<AppState>().plugin_refs.lock().unwrap() = refs;
+            }
 
             #[cfg(debug_assertions)]
             {
