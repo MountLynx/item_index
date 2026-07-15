@@ -12,6 +12,49 @@ fn greet(name: &str) -> String {
     format!("Hello, {}! Welcome to Index.", name)
 }
 
+/// Copy bundled resources (plugins, presets) from resource dir to app_data_dir.
+/// Skips files that already exist (first-run only).
+fn deploy_bundled_resources(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>> {
+    let resource_dir = app.path().resource_dir()?;
+    let app_data = app.path().app_data_dir()?;
+
+    // Only deploy if plugin-store is missing or empty
+    let store_dir = app_data.join("plugin-store");
+    let presets_dir = app_data.join("workspace-presets");
+
+    let src_plugins = resource_dir.join("plugins");
+    let src_presets = resource_dir.join("presets");
+
+    if src_plugins.exists() && !store_dir.join("calendar-view").exists() {
+        copy_dir_if_new(&src_plugins, &store_dir);
+    }
+    if src_presets.exists() {
+        std::fs::create_dir_all(&presets_dir).ok();
+        copy_dir_if_new(&src_presets, &presets_dir);
+    }
+    Ok(())
+}
+
+fn copy_dir_if_new(src: &std::path::Path, dst: &std::path::Path) {
+    if !dst.exists() {
+        std::fs::create_dir_all(dst).ok();
+    }
+    for entry in std::fs::read_dir(src).into_iter().flatten().flatten() {
+        let dst_path = dst.join(entry.file_name());
+        if entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
+            // Only copy dir if target doesn't exist (don't overwrite user's plugins)
+            if !dst_path.exists() {
+                copy_dir_if_new(&entry.path(), &dst_path);
+            }
+        } else {
+            // Copy file only if target doesn't exist
+            if !dst_path.exists() {
+                std::fs::copy(entry.path(), &dst_path).ok();
+            }
+        }
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -73,6 +116,9 @@ pub fn run() {
             commands::presets::export_preset,
         ])
         .setup(|app| {
+            // Deploy bundled plugins and presets to app-data on first run
+            deploy_bundled_resources(app.handle())?;
+
             #[cfg(debug_assertions)]
             {
                 let window = app.get_webview_window("main").unwrap();
