@@ -56,7 +56,11 @@ exports.default = function (Vue) {
       '.stats-btn-cancel:hover { background:var(--surface-hover); }',
       '.stats-empty { text-align:center; padding:24px 16px; color:var(--text-muted); }',
       '.stats-empty-hint { font-size:var(--fs-xs); margin-top:4px; }',
-      '.stats-var-badge { display:inline-block; font-size:10px; background:var(--accent-subtle); color:var(--accent); padding:0 5px; border-radius:var(--r-sm); margin-left:4px; vertical-align:middle; }'
+      '.stats-var-badge { display:inline-block; font-size:10px; background:var(--accent-subtle); color:var(--accent); padding:0 5px; border-radius:var(--r-sm); margin-left:4px; vertical-align:middle; }',
+      '.stats-mode-toggle { display:flex; gap:0; border:1px solid var(--border); border-radius:var(--r-sm); overflow:hidden; margin-bottom:8px; }',
+      '.stats-mode-btn { flex:1; padding:4px 8px; font-size:var(--fs-xs); border:none; background:var(--bg); color:var(--text-secondary); cursor:pointer; }',
+      '.stats-mode-btn.active { background:var(--accent); color:var(--accent-fg); }',
+      '.stats-mode-btn:first-child { border-right:1px solid var(--border); }'
     ].join('\n')
     document.head.appendChild(style)
   }
@@ -81,6 +85,7 @@ exports.default = function (Vue) {
       var editExtract = ref('')
       var editExpression = ref('')
       var editError = ref('')
+      var editMode = ref('query')          // 'query' | 'compute'
       var editVarName = ref('')
 
       // ── Persistence ──
@@ -251,14 +256,8 @@ exports.default = function (Vue) {
           if (typeof filterObj === 'string') {
             try { filterObj = JSON.parse(filterObj) } catch (e) { filterObj = null }
           }
-          // Normalize: treat empty objects/strings the same as null
-          if (filterObj && typeof filterObj === 'object' && Object.keys(filterObj).length === 0) {
-            filterObj = null
-          }
-          var extractField = cfg.extract || ''
-
-          // Pure-reference config (no filter, no extract): uses variables only
-          if (!filterObj && !extractField) {
+          // Compute-only mode: skip query, evaluate expression with variables only
+          if (cfg.mode === 'compute') {
             var stats = { count: 0, sum: 0, avg: 0, min: 0, max: 0, nums: [] }
             var exprResult = evalExpression(cfg.expression || '', stats, variables)
             if (cfg.varName && exprResult !== null) variables[cfg.varName] = exprResult
@@ -270,6 +269,7 @@ exports.default = function (Vue) {
           }
 
           var params = {}
+          var extractField = cfg.extract || ''
           if (filterObj) params.filter = filterObj
           if (extractField) params.extract = [extractField]
           else params.extract = []
@@ -326,6 +326,7 @@ exports.default = function (Vue) {
         editExtract.value = ''
         editExpression.value = ''
         editVarName.value = ''
+        editMode.value = 'query'
         editError.value = ''
       }
       function startEdit(id) {
@@ -337,6 +338,7 @@ exports.default = function (Vue) {
         editExtract.value = cfg.extract || ''
         editExpression.value = cfg.expression || ''
         editVarName.value = cfg.varName || ''
+        editMode.value = cfg.mode || 'query'
         editError.value = ''
       }
       function cancelEdit() {
@@ -378,6 +380,7 @@ exports.default = function (Vue) {
           var id = 's_' + Date.now()
           configs.value.push({
             id: id, title: editTitle.value.trim(), varName: newVarName || undefined,
+            mode: editMode.value === 'compute' ? 'compute' : undefined,
             filter: filterObj, extract: editExtract.value.trim(),
             expression: editExpression.value.trim()
           })
@@ -389,6 +392,7 @@ exports.default = function (Vue) {
           if (cfg) {
             cfg.title = editTitle.value.trim()
             cfg.varName = newVarName || undefined
+            cfg.mode = editMode.value === 'compute' ? 'compute' : undefined
             cfg.filter = filterObj
             cfg.extract = editExtract.value.trim()
             cfg.expression = editExpression.value.trim()
@@ -455,14 +459,19 @@ exports.default = function (Vue) {
           children.push(
             h('div', { class: 'stats-edit' }, [
               h('div', { class: 'stats-edit-back', onClick: cancelEdit }, '← 返回'),
+              // Mode toggle
+              h('div', { class: 'stats-mode-toggle' }, [
+                h('button', { class: 'stats-mode-btn' + (editMode.value === 'query' ? ' active' : ''), onClick: function () { editMode.value = 'query' } }, '查询条目'),
+                h('button', { class: 'stats-mode-btn' + (editMode.value === 'compute' ? ' active' : ''), onClick: function () { editMode.value = 'compute' } }, '仅计算'),
+              ]),
               h('label', { class: 'stats-label' }, '标题'),
               h('input', { class: 'stats-input', value: editTitle.value, onInput: function (e) { editTitle.value = e.target.value }, placeholder: '统计标题' }),
               h('label', { class: 'stats-label' }, '变量名（选填）'),
               h('input', { class: 'stats-input', value: editVarName.value, onInput: function (e) { editVarName.value = e.target.value }, placeholder: '留空则不注册为变量，例：credit' }),
-              h('label', { class: 'stats-label' }, '筛选条件（JSON）'),
-              h('textarea', { class: 'stats-textarea', value: editFilter.value, onInput: function (e) { editFilter.value = e.target.value }, placeholder: '{\n  "and": [\n    {"field": "item_type", "op": "=", "value": "ledge"}\n  ]\n}', rows: 6 }),
-              h('label', { class: 'stats-label' }, '提取字段'),
-              h('input', { class: 'stats-input', value: editExtract.value, onInput: function (e) { editExtract.value = e.target.value }, placeholder: 'rating' }),
+              editMode.value === 'query' ? h('label', { class: 'stats-label' }, '筛选条件（JSON）') : null,
+              editMode.value === 'query' ? h('textarea', { class: 'stats-textarea', value: editFilter.value, onInput: function (e) { editFilter.value = e.target.value }, placeholder: '{\n  "and": [\n    {"field": "item_type", "op": "=", "value": "ledge"}\n  ]\n}', rows: 6 }) : null,
+              editMode.value === 'query' ? h('label', { class: 'stats-label' }, '提取字段') : null,
+              editMode.value === 'query' ? h('input', { class: 'stats-input', value: editExtract.value, onInput: function (e) { editExtract.value = e.target.value }, placeholder: 'rating' }) : null,
               h('label', { class: 'stats-label' }, [
                 '计算表达式 ',
                 h('span', { class: 'stats-label-hint' }, '可用: count sum avg min max $变量名 + 数字 + - * / ( ) 例: 2100 - sum')
