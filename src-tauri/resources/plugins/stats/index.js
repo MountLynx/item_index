@@ -55,7 +55,8 @@ exports.default = function (Vue) {
       '.stats-btn-cancel { font-size:var(--fs-xs); padding:4px 16px; border:1px solid var(--border); border-radius:var(--r-sm); background:var(--surface); color:var(--text-secondary); cursor:pointer; }',
       '.stats-btn-cancel:hover { background:var(--surface-hover); }',
       '.stats-empty { text-align:center; padding:24px 16px; color:var(--text-muted); }',
-      '.stats-empty-hint { font-size:var(--fs-xs); margin-top:4px; }'
+      '.stats-empty-hint { font-size:var(--fs-xs); margin-top:4px; }',
+      '.stats-var-badge { display:inline-block; font-size:10px; background:var(--accent-subtle); color:var(--accent); padding:0 5px; border-radius:var(--r-sm); margin-left:4px; vertical-align:middle; }'
     ].join('\n')
     document.head.appendChild(style)
   }
@@ -91,6 +92,32 @@ exports.default = function (Vue) {
       }
       function saveConfigs() {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(configs.value))
+      }
+
+      // ── Cache ──
+      async function loadCache() {
+        try {
+          var data = await ctx.readCache()
+          if (data && Object.keys(data).length > 0) {
+            cache.value = data
+          }
+        } catch (e) { /* cache not available */ }
+      }
+      async function saveCache(variables) {
+        try {
+          // Only save variables that are defined (not NaN/undefined)
+          var clean = {}
+          var keys = Object.keys(variables)
+          for (var i = 0; i < keys.length; i++) {
+            var k = keys[i]
+            var v = variables[k]
+            if (v !== undefined && v !== null && isFinite(v)) {
+              clean[k] = v
+            }
+          }
+          cache.value = clean
+          await ctx.writeCache(clean)
+        } catch (e) { /* ignore write errors */ }
       }
 
       // ── Dependency graph ──
@@ -278,6 +305,8 @@ exports.default = function (Vue) {
           for (var i = 0; i < order.length; i++) {
             await refreshOne(dg.graph[order[i]].config, variables)
           }
+          // Persist variables to cache
+          await saveCache(variables)
         } catch (e) {
           console.error('Stats refresh error:', e)
         } finally {
@@ -373,8 +402,23 @@ exports.default = function (Vue) {
       }
 
       // ── Lifecycle ──
-      onMounted(function () {
+      onMounted(async function () {
         loadConfigs()
+        await loadCache()
+        // Display cached values immediately for configs with varName
+        if (cache.value) {
+          var cfgs = configs.value
+          for (var i = 0; i < cfgs.length; i++) {
+            var c = cfgs[i]
+            if (c.varName && cache.value[c.varName] !== undefined) {
+              results.value[c.id] = {
+                count: 0, sum: 0, avg: 0, min: 0, max: 0, nums: [],
+                exprResult: cache.value[c.varName], error: null, total: 0,
+                fromCache: true
+              }
+            }
+          }
+        }
         if (configs.value.length > 0) refreshAll()
       })
 
@@ -405,13 +449,15 @@ exports.default = function (Vue) {
               h('div', { class: 'stats-edit-back', onClick: cancelEdit }, '← 返回'),
               h('label', { class: 'stats-label' }, '标题'),
               h('input', { class: 'stats-input', value: editTitle.value, onInput: function (e) { editTitle.value = e.target.value }, placeholder: '统计标题' }),
+              h('label', { class: 'stats-label' }, '变量名（选填）'),
+              h('input', { class: 'stats-input', value: editVarName.value, onInput: function (e) { editVarName.value = e.target.value }, placeholder: '留空则不注册为变量，例：credit' }),
               h('label', { class: 'stats-label' }, '筛选条件（JSON）'),
               h('textarea', { class: 'stats-textarea', value: editFilter.value, onInput: function (e) { editFilter.value = e.target.value }, placeholder: '{\n  "and": [\n    {"field": "item_type", "op": "=", "value": "ledge"}\n  ]\n}', rows: 6 }),
               h('label', { class: 'stats-label' }, '提取字段'),
               h('input', { class: 'stats-input', value: editExtract.value, onInput: function (e) { editExtract.value = e.target.value }, placeholder: 'rating' }),
               h('label', { class: 'stats-label' }, [
                 '计算表达式 ',
-                h('span', { class: 'stats-label-hint' }, '可用: count sum avg min max + 数字 + - * / ( ) 例: 2100 - sum')
+                h('span', { class: 'stats-label-hint' }, '可用: count sum avg min max $变量名 + 数字 + - * / ( ) 例: 2100 - sum')
               ]),
               h('input', { class: 'stats-input', value: editExpression.value, onInput: function (e) { editExpression.value = e.target.value }, placeholder: 'avg（留空则显示全部统计）' }),
               editError.value && h('div', { class: 'stats-error' }, editError.value),
@@ -438,7 +484,10 @@ exports.default = function (Vue) {
               // Card header (always visible)
               h('div', { class: 'stats-card-hd', onClick: function () { toggleExpand(cfg.id) } }, [
                 h('span', { class: 'stats-card-toggle' }, isExpanded ? '▼' : '▶'),
-                h('span', { class: 'stats-card-title' }, cfg.title),
+                h('span', { class: 'stats-card-title' }, [
+                  cfg.title,
+                  cfg.varName ? h('span', { class: 'stats-var-badge' }, '$' + cfg.varName) : null
+                ]),
                 mainResult !== null && h('span', { class: 'stats-card-value' }, fmt(mainResult)),
                 h('div', { class: 'stats-card-actions' }, [
                   h('button', { class: 'stats-btn-icon', onClick: function (e) { e.stopPropagation(); refreshAll() }, title: '刷新' }, '🔄'),
