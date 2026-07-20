@@ -82,6 +82,8 @@ pub fn run() {
             commands::repo::create_repo,
             commands::repo::open_repo,
             commands::repo::close_repo,
+            commands::repo::open_sub_repo_window,
+            commands::repo::get_sub_repo_path,
             commands::repo::get_repo_info,
             commands::repo::get_state,
             commands::repo::save_state,
@@ -103,6 +105,9 @@ pub fn run() {
             commands::items::list_items,
             commands::items::update_item,
             commands::items::delete_item,
+            commands::items::open_item_folder,
+            commands::items::create_sub_repo,
+            commands::items::list_sub_repos,
             commands::groups::list_groups,
             commands::groups::create_group,
             commands::groups::update_group,
@@ -149,6 +154,22 @@ pub fn run() {
                 let app_handle = app.handle().clone();
                 let refs = crate::refs::load_refs(&app_handle).unwrap_or_default();
                 *app.state::<AppState>().plugin_refs.lock().unwrap() = refs;
+            }
+
+            // Register cleanup for the main window on destroy
+            {
+                let app_handle = app.handle().clone();
+                let main_window = app.get_webview_window("main").unwrap();
+                let label = main_window.label().to_string();
+                main_window.on_window_event(move |event| {
+                    if let tauri::WindowEvent::Destroyed = event {
+                        let state = app_handle.state::<AppState>();
+                        let mut repos = state.repos.lock().unwrap();
+                        repos.remove(&label);
+                        let mut pending = state.pending_sub_repos.lock().unwrap();
+                        pending.remove(&label);
+                    }
+                });
             }
 
             #[cfg(debug_assertions)]
