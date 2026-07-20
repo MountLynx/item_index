@@ -128,6 +128,27 @@ pub async fn uninstall_plugin_from_repo(
     Ok(())
 }
 
+fn validate_plugin_name(name: &str) -> Result<(), String> {
+    if name.is_empty()
+        || name.contains('/')
+        || name.contains('\\')
+        || name.contains("..")
+        || name.len() > 64
+    {
+        Err("Invalid plugin name".to_string())
+    } else {
+        Ok(())
+    }
+}
+
+fn cache_path(repo_path: &str, plugin_name: &str) -> Result<std::path::PathBuf, String> {
+    validate_plugin_name(plugin_name)?;
+    Ok(Path::new(repo_path)
+        .join(".index")
+        .join("plugin-cache")
+        .join(format!("{}.json", plugin_name)))
+}
+
 /// Read per-plugin cache from .index/plugin-cache/{plugin_name}.json
 #[tauri::command]
 pub async fn read_plugin_cache(
@@ -136,8 +157,7 @@ pub async fn read_plugin_cache(
     plugin_name: String,
 ) -> Result<serde_json::Value, String> {
     let repo_path = get_repo_path(&window, &state)?;
-    let cache_dir = Path::new(&repo_path).join(".index").join("plugin-cache");
-    let cache_path = cache_dir.join(format!("{}.json", plugin_name));
+    let cache_path = cache_path(&repo_path, &plugin_name)?;
 
     if !cache_path.exists() {
         return Ok(serde_json::json!({}));
@@ -158,11 +178,13 @@ pub async fn write_plugin_cache(
     data: serde_json::Value,
 ) -> Result<(), String> {
     let repo_path = get_repo_path(&window, &state)?;
-    let cache_dir = Path::new(&repo_path).join(".index").join("plugin-cache");
-    std::fs::create_dir_all(&cache_dir)
-        .map_err(|e| format!("Cannot create cache dir: {}", e))?;
+    let cache_path = cache_path(&repo_path, &plugin_name)?;
 
-    let cache_path = cache_dir.join(format!("{}.json", plugin_name));
+    if let Some(parent) = cache_path.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| format!("Cannot create cache dir: {}", e))?;
+    }
+
     let content = serde_json::to_string_pretty(&data)
         .map_err(|e| format!("Serialize error: {}", e))?;
     std::fs::write(&cache_path, content)
