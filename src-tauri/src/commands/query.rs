@@ -6,6 +6,14 @@ use tauri::State;
 use crate::models::{FilterNode, Item, OrderBy, QueryResult};
 use crate::state::AppState;
 
+fn get_pool(window: &tauri::Window, state: &State<'_, AppState>) -> Result<SqlitePool, String> {
+    let label = window.label().to_string();
+    state.repos.lock().unwrap()
+        .get(&label)
+        .map(|r| r.db.clone())
+        .ok_or("No repository open".to_string())
+}
+
 /// Tracks which special fields are referenced so we know which JOINs to emit.
 struct FieldSet {
     has_group: bool,
@@ -468,18 +476,14 @@ pub async fn execute_query(
 
 #[tauri::command]
 pub async fn query_items(
+    window: tauri::Window,
     state: State<'_, AppState>,
     filter: FilterNode,
     extract: Option<Vec<String>>,
     order_by: Option<OrderBy>,
     limit: Option<i64>,
 ) -> Result<QueryResult, String> {
-    let pool = state
-        .db
-        .lock()
-        .unwrap()
-        .clone()
-        .ok_or("No repository open".to_string())?;
+    let pool = get_pool(&window, &state)?;
     execute_query(
         &pool,
         &filter,

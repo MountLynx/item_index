@@ -3,8 +3,12 @@ use sqlx::SqlitePool;
 use crate::models::Group;
 use crate::state::AppState;
 
-fn get_pool(state: &State<'_, AppState>) -> Result<SqlitePool, String> {
-    state.db.lock().unwrap().clone().ok_or("No repository open".to_string())
+fn get_pool(window: &tauri::Window, state: &State<'_, AppState>) -> Result<SqlitePool, String> {
+    let label = window.label().to_string();
+    state.repos.lock().unwrap()
+        .get(&label)
+        .map(|r| r.db.clone())
+        .ok_or("No repository open".to_string())
 }
 
 fn build_tree(all: &[(i64, Option<i64>, String, i32)], parent_id: Option<i64>) -> Vec<Group> {
@@ -21,8 +25,8 @@ fn build_tree(all: &[(i64, Option<i64>, String, i32)], parent_id: Option<i64>) -
 }
 
 #[tauri::command]
-pub async fn list_groups(state: State<'_, AppState>) -> Result<Vec<Group>, String> {
-    let pool = get_pool(&state)?;
+pub async fn list_groups(window: tauri::Window, state: State<'_, AppState>) -> Result<Vec<Group>, String> {
+    let pool = get_pool(&window, &state)?;
     let rows: Vec<(i64, Option<i64>, String, i32)> = sqlx::query_as(
         "SELECT id, parent_id, name, position FROM groups ORDER BY position"
     ).fetch_all(&pool).await.map_err(|e| e.to_string())?;
@@ -32,11 +36,12 @@ pub async fn list_groups(state: State<'_, AppState>) -> Result<Vec<Group>, Strin
 
 #[tauri::command]
 pub async fn create_group(
+    window: tauri::Window,
     state: State<'_, AppState>,
     name: String,
     parent_id: Option<i64>,
 ) -> Result<Group, String> {
-    let pool = get_pool(&state)?;
+    let pool = get_pool(&window, &state)?;
 
     let max_pos: Option<i32> = sqlx::query_scalar(
         "SELECT MAX(position) FROM groups WHERE parent_id IS ?"
@@ -53,11 +58,12 @@ pub async fn create_group(
 
 #[tauri::command]
 pub async fn update_group(
+    window: tauri::Window,
     state: State<'_, AppState>,
     id: i64,
     name: Option<String>,
 ) -> Result<Group, String> {
-    let pool = get_pool(&state)?;
+    let pool = get_pool(&window, &state)?;
 
     if let Some(n) = &name {
         sqlx::query("UPDATE groups SET name = ? WHERE id = ?")
@@ -72,8 +78,8 @@ pub async fn update_group(
 }
 
 #[tauri::command]
-pub async fn delete_group(state: State<'_, AppState>, id: i64) -> Result<(), String> {
-    let pool = get_pool(&state)?;
+pub async fn delete_group(window: tauri::Window, state: State<'_, AppState>, id: i64) -> Result<(), String> {
+    let pool = get_pool(&window, &state)?;
     sqlx::query("DELETE FROM groups WHERE id = ?")
         .bind(id).execute(&pool).await.map_err(|e| e.to_string())?;
     Ok(())
@@ -81,12 +87,13 @@ pub async fn delete_group(state: State<'_, AppState>, id: i64) -> Result<(), Str
 
 #[tauri::command]
 pub async fn move_group(
+    window: tauri::Window,
     state: State<'_, AppState>,
     id: i64,
     parent_id: Option<i64>,
     position: i32,
 ) -> Result<(), String> {
-    let pool = get_pool(&state)?;
+    let pool = get_pool(&window, &state)?;
     sqlx::query("UPDATE groups SET parent_id = ?, position = ? WHERE id = ?")
         .bind(parent_id).bind(position).bind(id)
         .execute(&pool).await.map_err(|e| e.to_string())?;
@@ -95,11 +102,12 @@ pub async fn move_group(
 
 #[tauri::command]
 pub async fn add_item_to_group(
+    window: tauri::Window,
     state: State<'_, AppState>,
     item_id: String,
     group_id: i64,
 ) -> Result<(), String> {
-    let pool = get_pool(&state)?;
+    let pool = get_pool(&window, &state)?;
     sqlx::query("INSERT OR IGNORE INTO item_groups (item_id, group_id) VALUES (?, ?)")
         .bind(&item_id).bind(group_id)
         .execute(&pool).await.map_err(|e| e.to_string())?;
@@ -108,11 +116,12 @@ pub async fn add_item_to_group(
 
 #[tauri::command]
 pub async fn remove_item_from_group(
+    window: tauri::Window,
     state: State<'_, AppState>,
     item_id: String,
     group_id: i64,
 ) -> Result<(), String> {
-    let pool = get_pool(&state)?;
+    let pool = get_pool(&window, &state)?;
     sqlx::query("DELETE FROM item_groups WHERE item_id = ? AND group_id = ?")
         .bind(&item_id).bind(group_id)
         .execute(&pool).await.map_err(|e| e.to_string())?;

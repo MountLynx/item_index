@@ -3,12 +3,16 @@ use tauri::State;
 use crate::models::{WorkspaceConfig, WorkspaceSummary};
 use crate::state::AppState;
 
-fn get_repo_path(state: &State<'_, AppState>) -> Result<String, String> {
-    state.repo_path.lock().unwrap().clone().ok_or("No repository open".to_string())
+fn get_repo_path(window: &tauri::Window, state: &State<'_, AppState>) -> Result<String, String> {
+    let label = window.label().to_string();
+    state.repos.lock().unwrap()
+        .get(&label)
+        .map(|r| r.path.clone())
+        .ok_or("No repository open".to_string())
 }
 
-fn workspaces_dir(state: &State<'_, AppState>) -> Result<std::path::PathBuf, String> {
-    let dir = Path::new(&get_repo_path(state)?).join(".index").join("workspaces");
+fn workspaces_dir(repo_path: &str) -> Result<std::path::PathBuf, String> {
+    let dir = Path::new(repo_path).join(".index").join("workspaces");
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     Ok(dir)
 }
@@ -32,11 +36,12 @@ fn default_workspace() -> WorkspaceConfig {
 }
 
 #[tauri::command]
-pub async fn list_workspaces(state: State<'_, AppState>) -> Result<Vec<WorkspaceSummary>, String> {
-    let dir = workspaces_dir(&state)?;
+pub async fn list_workspaces(window: tauri::Window, state: State<'_, AppState>) -> Result<Vec<WorkspaceSummary>, String> {
+    let repo_path = get_repo_path(&window, &state)?;
+    let dir = workspaces_dir(&repo_path)?;
 
     // Read active workspace from state.json
-    let state_json_path = Path::new(&get_repo_path(&state)?).join(".index").join("state.json");
+    let state_json_path = Path::new(&repo_path).join(".index").join("state.json");
     let mut active: String = if state_json_path.exists() {
         let raw = std::fs::read_to_string(&state_json_path).map_err(|e| e.to_string())?;
         let v: serde_json::Value = serde_json::from_str(&raw).map_err(|e| e.to_string())?;
@@ -107,27 +112,31 @@ pub async fn list_workspaces(state: State<'_, AppState>) -> Result<Vec<Workspace
 }
 
 #[tauri::command]
-pub async fn read_workspace(state: State<'_, AppState>, name: String) -> Result<WorkspaceConfig, String> {
-    let path = workspaces_dir(&state)?.join(format!("{}.json", name));
+pub async fn read_workspace(window: tauri::Window, state: State<'_, AppState>, name: String) -> Result<WorkspaceConfig, String> {
+    let repo_path = get_repo_path(&window, &state)?;
+    let path = workspaces_dir(&repo_path)?.join(format!("{}.json", name));
     let raw = std::fs::read_to_string(&path).map_err(|e| format!("Workspace not found: {}", e))?;
     serde_json::from_str(&raw).map_err(|e| format!("Parse error: {}", e))
 }
 
 #[tauri::command]
 pub async fn write_workspace(
+    window: tauri::Window,
     state: State<'_, AppState>,
     name: String,
     config: WorkspaceConfig,
 ) -> Result<(), String> {
-    let path = workspaces_dir(&state)?.join(format!("{}.json", name));
+    let repo_path = get_repo_path(&window, &state)?;
+    let path = workspaces_dir(&repo_path)?.join(format!("{}.json", name));
     let json = serde_json::to_string_pretty(&config).map_err(|e| e.to_string())?;
     std::fs::write(&path, &json).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub async fn delete_workspace(state: State<'_, AppState>, name: String) -> Result<(), String> {
+pub async fn delete_workspace(window: tauri::Window, state: State<'_, AppState>, name: String) -> Result<(), String> {
     // Prevent deleting the only workspace
-    let dir = workspaces_dir(&state)?;
+    let repo_path = get_repo_path(&window, &state)?;
+    let dir = workspaces_dir(&repo_path)?;
     let count = std::fs::read_dir(&dir).map_err(|e| e.to_string())?
         .filter_map(|e| e.ok())
         .filter(|e| e.path().extension().map_or(false, |ext| ext == "json"))

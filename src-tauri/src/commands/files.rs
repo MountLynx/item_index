@@ -3,8 +3,12 @@ use tauri::State;
 use crate::models::FileNode;
 use crate::state::AppState;
 
-fn get_repo_path(state: &State<'_, AppState>) -> Result<String, String> {
-    state.repo_path.lock().unwrap().clone().ok_or("No repository open".to_string())
+fn get_repo_path(window: &tauri::Window, state: &State<'_, AppState>) -> Result<String, String> {
+    let label = window.label().to_string();
+    state.repos.lock().unwrap()
+        .get(&label)
+        .map(|r| r.path.clone())
+        .ok_or("No repository open".to_string())
 }
 
 fn read_dir_recursive(path: &Path) -> Result<Vec<FileNode>, String> {
@@ -31,10 +35,11 @@ fn resolve_path(repo_path: &str, item_id: &str, rel_path: &str) -> Result<std::p
 
 #[tauri::command]
 pub async fn list_files(
+    window: tauri::Window,
     state: State<'_, AppState>,
     item_id: String,
 ) -> Result<FileNode, String> {
-    let repo_path = get_repo_path(&state)?;
+    let repo_path = get_repo_path(&window, &state)?;
     let item_dir = Path::new(&repo_path).join(&item_id);
     if !item_dir.exists() {
         return Ok(FileNode { name: item_id, is_dir: true, children: vec![] });
@@ -45,22 +50,24 @@ pub async fn list_files(
 
 #[tauri::command]
 pub async fn create_folder(
+    window: tauri::Window,
     state: State<'_, AppState>,
     item_id: String,
     rel_path: String,
 ) -> Result<(), String> {
-    let repo_path = get_repo_path(&state)?;
+    let repo_path = get_repo_path(&window, &state)?;
     let target = resolve_path(&repo_path, &item_id, &rel_path)?;
     std::fs::create_dir_all(&target).map_err(|e| format!("Cannot create folder: {}", e))
 }
 
 #[tauri::command]
 pub async fn delete_file(
+    window: tauri::Window,
     state: State<'_, AppState>,
     item_id: String,
     rel_path: String,
 ) -> Result<(), String> {
-    let repo_path = get_repo_path(&state)?;
+    let repo_path = get_repo_path(&window, &state)?;
     let target = resolve_path(&repo_path, &item_id, &rel_path)?;
     if target.is_dir() {
         std::fs::remove_dir_all(&target).map_err(|e| format!("Cannot delete: {}", e))
@@ -71,12 +78,13 @@ pub async fn delete_file(
 
 #[tauri::command]
 pub async fn rename_file(
+    window: tauri::Window,
     state: State<'_, AppState>,
     item_id: String,
     old_name: String,
     new_name: String,
 ) -> Result<(), String> {
-    let repo_path = get_repo_path(&state)?;
+    let repo_path = get_repo_path(&window, &state)?;
     let old_path = resolve_path(&repo_path, &item_id, &old_name)?;
     let new_path = resolve_path(&repo_path, &item_id, &new_name)?;
     std::fs::rename(&old_path, &new_path).map_err(|e| format!("Cannot rename: {}", e))
@@ -84,11 +92,12 @@ pub async fn rename_file(
 
 #[tauri::command]
 pub async fn add_attachment(
+    window: tauri::Window,
     state: State<'_, AppState>,
     item_id: String,
     source_path: String,
 ) -> Result<(), String> {
-    let repo_path = get_repo_path(&state)?;
+    let repo_path = get_repo_path(&window, &state)?;
     let source = Path::new(&source_path);
     let file_name = source.file_name()
         .ok_or("Invalid source path")?
@@ -125,11 +134,12 @@ pub async fn add_attachment(
 
 #[tauri::command]
 pub async fn open_file(
+    window: tauri::Window,
     state: State<'_, AppState>,
     item_id: String,
     rel_path: String,
 ) -> Result<(), String> {
-    let repo_path = get_repo_path(&state)?;
+    let repo_path = get_repo_path(&window, &state)?;
     let target = resolve_path(&repo_path, &item_id, &rel_path)?;
     open::that(target.to_str().ok_or("Invalid path")?)
         .map_err(|e| format!("Cannot open file: {}", e))

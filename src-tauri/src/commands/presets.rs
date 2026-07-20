@@ -4,8 +4,12 @@ use crate::models::{PresetSummary, WorkspaceConfig, PluginManifest};
 use crate::refs;
 use crate::state::AppState;
 
-fn get_pool(state: &State<'_, AppState>) -> Result<sqlx::SqlitePool, String> {
-    state.db.lock().unwrap().clone().ok_or("No repository open".to_string())
+fn get_pool(window: &tauri::Window, state: &State<'_, AppState>) -> Result<sqlx::SqlitePool, String> {
+    let label = window.label().to_string();
+    state.repos.lock().unwrap()
+        .get(&label)
+        .map(|r| r.db.clone())
+        .ok_or("No repository open".to_string())
 }
 
 /// Validates that a plugin or preset name contains only safe characters
@@ -18,8 +22,12 @@ fn is_safe_plugin_name(name: &str) -> bool {
         && name.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_')
 }
 
-fn get_repo_path(state: &State<'_, AppState>) -> Result<String, String> {
-    state.repo_path.lock().unwrap().clone().ok_or("No repository open".to_string())
+fn get_repo_path(window: &tauri::Window, state: &State<'_, AppState>) -> Result<String, String> {
+    let label = window.label().to_string();
+    state.repos.lock().unwrap()
+        .get(&label)
+        .map(|r| r.path.clone())
+        .ok_or("No repository open".to_string())
 }
 
 /// Returns the presets directory path WITHOUT creating it (read path).
@@ -36,15 +44,15 @@ fn presets_dir(app: &AppHandle) -> Result<std::path::PathBuf, String> {
     Ok(dir)
 }
 
-fn repo_plugins_dir(state: &State<'_, AppState>) -> Result<std::path::PathBuf, String> {
-    let dir = Path::new(&get_repo_path(state)?).join(".index").join("plugins");
+fn repo_plugins_dir(repo_path: &str) -> Result<std::path::PathBuf, String> {
+    let dir = Path::new(repo_path).join(".index").join("plugins");
     std::fs::create_dir_all(&dir)
         .map_err(|e| format!("Failed to create repo plugins directory '{}': {}", dir.display(), e))?;
     Ok(dir)
 }
 
-fn repo_workspaces_dir(state: &State<'_, AppState>) -> Result<std::path::PathBuf, String> {
-    let dir = Path::new(&get_repo_path(state)?).join(".index").join("workspaces");
+fn repo_workspaces_dir(repo_path: &str) -> Result<std::path::PathBuf, String> {
+    let dir = Path::new(repo_path).join(".index").join("workspaces");
     std::fs::create_dir_all(&dir)
         .map_err(|e| format!("Failed to create repo workspaces directory '{}': {}", dir.display(), e))?;
     Ok(dir)
@@ -87,6 +95,7 @@ pub async fn list_global_plugins(app: AppHandle) -> Result<Vec<PluginManifest>, 
 /// Install (copy) a plugin from the global store into the current repo.
 #[tauri::command]
 pub async fn install_plugin(
+    window: tauri::Window,
     app: AppHandle,
     state: State<'_, AppState>,
     plugin_name: String,
@@ -98,13 +107,13 @@ pub async fn install_plugin(
     if !src.exists() {
         return Err(format!("Plugin '{}' not found in global store", plugin_name));
     }
-    let dst = repo_plugins_dir(&state)?.join(&plugin_name);
+    let repo_path = get_repo_path(&window, &state)?;
+    let dst = repo_plugins_dir(&repo_path)?.join(&plugin_name);
     if dst.exists() {
         return Err(format!("Plugin '{}' is already installed in this repo", plugin_name));
     }
     copy_dir(&src, &dst)?;
-    let repo = get_repo_path(&state)?;
-    refs::add_repo_ref(&app, &state, &plugin_name, &repo)?;
+    refs::add_repo_ref(&app, &state, &plugin_name, &repo_path)?;
     Ok(())
 }
 
@@ -229,6 +238,7 @@ pub async fn list_workspace_presets(app: AppHandle) -> Result<Vec<PresetSummary>
 
 #[tauri::command]
 pub async fn install_preset(
+    window: tauri::Window,
     app: AppHandle,
     state: State<'_, AppState>,
     preset_name: String,
@@ -247,12 +257,14 @@ pub async fn install_preset(
     let workspace_cfg: WorkspaceConfig = serde_json::from_value(cfg.clone())
         .map_err(|e| format!("Failed to deserialize preset '{}': {}", preset_path.display(), e))?;
 
+    let repo_path = get_repo_path(&window, &state)?;
+
     // 2. Copy bundled plugins from global plugin-store to repo plugins
     let bundle = cfg.get("bundle");
     if let Some(b) = bundle {
         if let Some(plugins) = b.get("plugins").and_then(|v| v.as_array()) {
             let global_store = global_plugin_store(&app)?;
-            let repo_plugins = repo_plugins_dir(&state)?;
+            let repo_plugins = repo_plugins_dir(&repo_path)?;
             for p in plugins {
                 let plugin_name = p.as_str().unwrap_or("");
                 if plugin_name.is_empty() { continue; }
@@ -274,7 +286,7 @@ pub async fn install_preset(
     // 2.5 Create item types from bundle (insert or ignore if name exists)
     if let Some(b) = bundle {
         if let Some(item_types) = b.get("itemTypes").and_then(|v| v.as_array()) {
-            let pool = get_pool(&state)?;
+            let pool = get_pool(&window, &state)?;
             for t in item_types {
                 let type_name = t["name"].as_str().unwrap_or("");
                 let type_icon = t["icon"].as_str().unwrap_or("file");
@@ -316,7 +328,7 @@ pub async fn install_preset(
     }
 
     // 3. Write workspace config to repo (use config.name as filename, not preset_name)
-    let ws_path = repo_workspaces_dir(&state)?.join(format!("{}.json", workspace_cfg.name));
+    let ws_path = repo_workspaces_dir(&repo_path)?.join(format!("{}.json", workspace_cfg.name));
     let json = serde_json::to_string_pretty(&workspace_cfg)
         .map_err(|e| format!("Failed to serialize workspace config: {}", e))?;
     std::fs::write(&ws_path, &json)
@@ -327,6 +339,7 @@ pub async fn install_preset(
 
 #[tauri::command]
 pub async fn export_preset(
+    window: tauri::Window,
     app: AppHandle,
     state: State<'_, AppState>,
     name: String,
@@ -336,8 +349,10 @@ pub async fn export_preset(
         return Err(format!("Invalid preset name: '{}'", name));
     }
 
+    let repo_path = get_repo_path(&window, &state)?;
+
     // Read workspace config
-    let ws_dir = repo_workspaces_dir(&state)?;
+    let ws_dir = repo_workspaces_dir(&repo_path)?;
     let ws_path = ws_dir.join(format!("{}.json", name));
     let raw = std::fs::read_to_string(&ws_path)
         .map_err(|e| format!("Workspace not found at '{}': {}", ws_path.display(), e))?;
@@ -346,7 +361,7 @@ pub async fn export_preset(
 
     // Scan installed plugins from repo plugins dir
     let plugin_names: Vec<String> = {
-        let plugins_dir = repo_plugins_dir(&state)?;
+        let plugins_dir = repo_plugins_dir(&repo_path)?;
         if plugins_dir.exists() {
             let mut names = vec![];
             if let Ok(entries) = std::fs::read_dir(&plugins_dir) {
@@ -370,7 +385,7 @@ pub async fn export_preset(
     }
 
     // Scan item types from DB
-    let pool = get_pool(&state)?;
+    let pool = get_pool(&window, &state)?;
     let item_types_raw: Vec<(i64, String, String)> = sqlx::query_as(
         "SELECT id, name, icon FROM item_types ORDER BY id"
     )

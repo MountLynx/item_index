@@ -3,12 +3,11 @@ use sqlx::SqlitePool;
 use crate::models::{Field, ItemType};
 use crate::state::AppState;
 
-fn get_pool(state: &State<'_, AppState>) -> Result<SqlitePool, String> {
-    state
-        .db
-        .lock()
-        .unwrap()
-        .clone()
+fn get_pool(window: &tauri::Window, state: &State<'_, AppState>) -> Result<SqlitePool, String> {
+    let label = window.label().to_string();
+    state.repos.lock().unwrap()
+        .get(&label)
+        .map(|r| r.db.clone())
         .ok_or("No repository open".to_string())
 }
 
@@ -17,8 +16,8 @@ fn parse_options(raw: &str) -> Vec<String> {
 }
 
 #[tauri::command]
-pub async fn list_item_types(state: State<'_, AppState>) -> Result<Vec<ItemType>, String> {
-    let pool = get_pool(&state)?;
+pub async fn list_item_types(window: tauri::Window, state: State<'_, AppState>) -> Result<Vec<ItemType>, String> {
+    let pool = get_pool(&window, &state)?;
 
     let type_rows: Vec<(i64, String, String, String)> =
         sqlx::query_as("SELECT id, name, icon, namespace FROM item_types ORDER BY id")
@@ -64,11 +63,12 @@ pub async fn list_item_types(state: State<'_, AppState>) -> Result<Vec<ItemType>
 
 #[tauri::command]
 pub async fn create_item_type(
+    window: tauri::Window,
     state: State<'_, AppState>,
     name: String,
     icon: Option<String>,
 ) -> Result<ItemType, String> {
-    let pool = get_pool(&state)?;
+    let pool = get_pool(&window, &state)?;
     let icon = icon.unwrap_or_else(|| "📄".to_string());
 
     let id: i64 = sqlx::query_scalar(
@@ -90,8 +90,8 @@ pub async fn create_item_type(
 }
 
 #[tauri::command]
-pub async fn delete_item_type(state: State<'_, AppState>, id: i64) -> Result<(), String> {
-    let pool = get_pool(&state)?;
+pub async fn delete_item_type(window: tauri::Window, state: State<'_, AppState>, id: i64) -> Result<(), String> {
+    let pool = get_pool(&window, &state)?;
     // Preset types (1=通用, 2=任务) are protected
     if id == 1 || id == 2 {
         return Err("Cannot delete preset types".to_string());
@@ -106,6 +106,7 @@ pub async fn delete_item_type(state: State<'_, AppState>, id: i64) -> Result<(),
 
 #[tauri::command]
 pub async fn add_field(
+    window: tauri::Window,
     state: State<'_, AppState>,
     type_id: i64,
     name: String,
@@ -114,7 +115,7 @@ pub async fn add_field(
     label: Option<String>,
     options: Option<Vec<String>>,
 ) -> Result<Field, String> {
-    let pool = get_pool(&state)?;
+    let pool = get_pool(&window, &state)?;
     let icon = icon.unwrap_or_else(|| "circle".to_string());
     let label = label.unwrap_or_default();
     let opts = serde_json::to_string(&options.clone().unwrap_or_default()).map_err(|e| e.to_string())?;
@@ -155,8 +156,8 @@ pub async fn add_field(
 }
 
 #[tauri::command]
-pub async fn remove_field(state: State<'_, AppState>, field_id: i64) -> Result<(), String> {
-    let pool = get_pool(&state)?;
+pub async fn remove_field(window: tauri::Window, state: State<'_, AppState>, field_id: i64) -> Result<(), String> {
+    let pool = get_pool(&window, &state)?;
     sqlx::query("DELETE FROM fields WHERE id = ?")
         .bind(field_id)
         .execute(&pool)
@@ -167,11 +168,12 @@ pub async fn remove_field(state: State<'_, AppState>, field_id: i64) -> Result<(
 
 #[tauri::command]
 pub async fn reorder_fields(
+    window: tauri::Window,
     state: State<'_, AppState>,
     type_id: i64,
     field_ids: Vec<i64>,
 ) -> Result<(), String> {
-    let pool = get_pool(&state)?;
+    let pool = get_pool(&window, &state)?;
     for (i, field_id) in field_ids.into_iter().enumerate() {
         sqlx::query("UPDATE fields SET position = ? WHERE id = ? AND type_id = ?")
             .bind(i as i32)
@@ -186,12 +188,13 @@ pub async fn reorder_fields(
 
 #[tauri::command]
 pub async fn update_item_type(
+    window: tauri::Window,
     state: State<'_, AppState>,
     id: i64,
     name: String,
     icon: String,
 ) -> Result<ItemType, String> {
-    let pool = get_pool(&state)?;
+    let pool = get_pool(&window, &state)?;
 
     sqlx::query("UPDATE item_types SET name = ?, icon = ? WHERE id = ?")
         .bind(&name)
@@ -237,6 +240,7 @@ pub async fn update_item_type(
 
 #[tauri::command]
 pub async fn update_field(
+    window: tauri::Window,
     state: State<'_, AppState>,
     id: i64,
     name: String,
@@ -245,7 +249,7 @@ pub async fn update_field(
     label: String,
     options: Option<Vec<String>>,
 ) -> Result<Field, String> {
-    let pool = get_pool(&state)?;
+    let pool = get_pool(&window, &state)?;
     let opts = serde_json::to_string(&options.clone().unwrap_or_default()).map_err(|e| e.to_string())?;
     let options_list = options.unwrap_or_default();
 

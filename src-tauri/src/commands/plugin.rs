@@ -4,18 +4,23 @@ use crate::models::PluginManifest;
 use crate::state::AppState;
 use crate::refs;
 
-fn get_repo_path(state: &State<'_, AppState>) -> Result<String, String> {
-    state.repo_path.lock().unwrap().clone().ok_or("No repository open".to_string())
+fn get_repo_path(window: &tauri::Window, state: &State<'_, AppState>) -> Result<String, String> {
+    let label = window.label().to_string();
+    state.repos.lock().unwrap()
+        .get(&label)
+        .map(|r| r.path.clone())
+        .ok_or("No repository open".to_string())
 }
 
-fn plugins_dir(state: &State<'_, AppState>) -> Result<std::path::PathBuf, String> {
-    let path = Path::new(&get_repo_path(&state)?).join(".index").join("plugins");
+fn plugins_dir(repo_path: &str) -> Result<std::path::PathBuf, String> {
+    let path = Path::new(repo_path).join(".index").join("plugins");
     Ok(path)
 }
 
 #[tauri::command]
-pub async fn list_installed_plugins(state: State<'_, AppState>) -> Result<Vec<PluginManifest>, String> {
-    let dir = plugins_dir(&state)?;
+pub async fn list_installed_plugins(window: tauri::Window, state: State<'_, AppState>) -> Result<Vec<PluginManifest>, String> {
+    let repo_path = get_repo_path(&window, &state)?;
+    let dir = plugins_dir(&repo_path)?;
     if !dir.exists() {
         return Ok(vec![]);
     }
@@ -48,11 +53,13 @@ pub async fn list_installed_plugins(state: State<'_, AppState>) -> Result<Vec<Pl
 
 #[tauri::command]
 pub async fn read_plugin_file(
+    window: tauri::Window,
     state: State<'_, AppState>,
     plugin_name: String,
     filename: String,
 ) -> Result<String, String> {
-    let dir = plugins_dir(&state)?;
+    let repo_path = get_repo_path(&window, &state)?;
+    let dir = plugins_dir(&repo_path)?;
     let file_path = dir.join(&plugin_name).join(&filename);
 
     // Security: ensure path is within plugins dir
@@ -68,6 +75,7 @@ pub async fn read_plugin_file(
 #[tauri::command]
 #[allow(unused_variables)]
 pub async fn check_plugin_usage(
+    window: tauri::Window,
     app: tauri::AppHandle,
     state: State<'_, AppState>,
     plugin_name: String,
@@ -79,11 +87,12 @@ pub async fn check_plugin_usage(
 /// Blocks if any workspace in this repo still references the plugin.
 #[tauri::command]
 pub async fn uninstall_plugin_from_repo(
+    window: tauri::Window,
     app: tauri::AppHandle,
     state: State<'_, AppState>,
     plugin_name: String,
 ) -> Result<(), String> {
-    let repo_path = get_repo_path(&state)?;
+    let repo_path = get_repo_path(&window, &state)?;
     let workspaces_dir = std::path::Path::new(&repo_path)
         .join(".index").join("workspaces");
 
@@ -108,7 +117,7 @@ pub async fn uninstall_plugin_from_repo(
         }
     }
 
-    let dir = plugins_dir(&state)?.join(&plugin_name);
+    let dir = plugins_dir(&repo_path)?.join(&plugin_name);
     if !dir.exists() {
         return Err(format!("Plugin '{}' is not installed in this repo", plugin_name));
     }
