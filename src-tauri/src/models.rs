@@ -208,3 +208,47 @@ pub struct PluginUsage {
 }
 
 pub type RefTable = std::collections::HashMap<String, PluginUsage>;
+
+// ── Query Engine models ──
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(untagged)]
+pub enum FilterNode {
+    Condition {
+        field: String,
+        op: String,
+        value: serde_json::Value,
+    },
+    Logic {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        and: Option<Vec<FilterNode>>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        or: Option<Vec<FilterNode>>,
+    },
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct QueryParams {
+    pub filter: FilterNode,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub extract: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none", rename = "orderBy")]
+    pub order_by: Option<OrderBy>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub limit: Option<i64>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct OrderBy {
+    pub field: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub desc: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct QueryResult {
+    pub items: Vec<Item>,
+    pub total: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub extracted: Option<std::collections::HashMap<String, serde_json::Value>>,
+}
