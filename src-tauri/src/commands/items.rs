@@ -6,12 +6,20 @@ use sqlx::SqlitePool;
 use crate::models::{Item, ItemDetail, ItemType, Field, Group, Tag, FileNode};
 use crate::state::AppState;
 
-fn get_pool(state: &State<'_, AppState>) -> Result<SqlitePool, String> {
-    state.db.lock().unwrap().clone().ok_or("No repository open".to_string())
+fn get_pool(window: &tauri::Window, state: &State<'_, AppState>) -> Result<SqlitePool, String> {
+    let label = window.label().to_string();
+    state.repos.lock().unwrap()
+        .get(&label)
+        .map(|r| r.db.clone())
+        .ok_or("No repository open".to_string())
 }
 
-fn get_repo_path(state: &State<'_, AppState>) -> Result<String, String> {
-    state.repo_path.lock().unwrap().clone().ok_or("No repository open".to_string())
+fn get_repo_path(window: &tauri::Window, state: &State<'_, AppState>) -> Result<String, String> {
+    let label = window.label().to_string();
+    state.repos.lock().unwrap()
+        .get(&label)
+        .map(|r| r.path.clone())
+        .ok_or("No repository open".to_string())
 }
 
 fn generate_id() -> String {
@@ -77,29 +85,52 @@ async fn fetch_item_tags(pool: &SqlitePool, item_id: &str) -> Result<Vec<Tag>, S
     Ok(rows.into_iter().map(|(id, name, namespace)| Tag { id, name, namespace }).collect())
 }
 
+fn map_item_rows(rows: Vec<(String, String, i64, String, String, String, String)>) -> Vec<Item> {
+    rows.into_iter().map(|(id, name, type_id, props_str, namespace, created_at, updated_at)| {
+        let properties: serde_json::Value = serde_json::from_str(&props_str).unwrap_or_default();
+        Item { id, name, type_id, properties, namespace, created_at, updated_at }
+    }).collect()
+}
+
 #[tauri::command]
 pub async fn create_item(
+    window: tauri::Window,
     state: State<'_, AppState>,
     type_id: i64,
     name: String,
 ) -> Result<Item, String> {
-    let pool = get_pool(&state)?;
-    let repo_path = get_repo_path(&state)?;
+    let pool = get_pool(&window, &state)?;
+    let repo_path = get_repo_path(&window, &state)?;
     let id = generate_id();
     let now = chrono::Utc::now().to_rfc3339();
+
+    // Begin transaction — INSERT + filesystem ops are atomic from DB perspective
+    let mut tx = pool.begin().await.map_err(|e| e.to_string())?;
 
     sqlx::query(
         "INSERT INTO items (id, name, type_id, properties, namespace, created_at, updated_at)
          VALUES (?, ?, ?, '{}', 'default', ?, ?)"
     ).bind(&id).bind(&name).bind(type_id).bind(&now).bind(&now)
-        .execute(&pool).await.map_err(|e| e.to_string())?;
+        .execute(&mut *tx).await.map_err(|e| e.to_string())?;
 
     // Create hash folder + auto-generate <name>.md
     let item_dir = Path::new(&repo_path).join(&id);
-    std::fs::create_dir_all(&item_dir).map_err(|e| format!("Cannot create item folder: {}", e))?;
+    if let Err(e) = std::fs::create_dir_all(&item_dir) {
+        // tx auto-rollbacks on drop — no DB row remains
+        return Err(format!("Cannot create item folder: {}", e));
+    }
     let md_content = format!("# {}\n", name);
-    std::fs::write(item_dir.join(format!("{}.md", name)), md_content)
-        .map_err(|e| format!("Cannot create .md file: {}", e))?;
+    if let Err(e) = std::fs::write(item_dir.join(format!("{}.md", name)), md_content) {
+        // Clean up the partially-created folder, then tx auto-rollbacks
+        let _ = std::fs::remove_dir_all(&item_dir);
+        return Err(format!("Cannot create .md file: {}", e));
+    }
+
+    // Commit — if this fails, clean up folder since DB row was rolled back
+    tx.commit().await.map_err(|e| {
+        let _ = std::fs::remove_dir_all(&item_dir);
+        e.to_string()
+    })?;
 
     Ok(Item {
         id, name, type_id,
@@ -112,11 +143,12 @@ pub async fn create_item(
 
 #[tauri::command]
 pub async fn get_item(
+    window: tauri::Window,
     state: State<'_, AppState>,
     id: String,
 ) -> Result<ItemDetail, String> {
-    let pool = get_pool(&state)?;
-    let repo_path = get_repo_path(&state)?;
+    let pool = get_pool(&window, &state)?;
+    let repo_path = get_repo_path(&window, &state)?;
 
     let (name, type_id, properties_str, namespace, created_at, updated_at): (
         String, i64, String, String, String, String,
@@ -146,167 +178,105 @@ pub async fn get_item(
 
 #[tauri::command]
 pub async fn list_items(
+    window: tauri::Window,
     state: State<'_, AppState>,
     group_id: Option<i64>,
     tag_id: Option<i64>,
     type_ids: Option<Vec<i64>>,
 ) -> Result<Vec<Item>, String> {
-    let pool = get_pool(&state)?;
+    let pool = get_pool(&window, &state)?;
 
-    let rows: Vec<(String, String, i64, String, String, String, String)> = {
-        let tid_filter = type_ids.clone();
+    let has_group = group_id.is_some();
+    let has_tag = tag_id.is_some();
+    let has_types = type_ids.as_ref().map_or(false, |v| !v.is_empty());
 
-        if let Some(gid) = group_id {
-            if let Some(tid) = tag_id {
-                if let Some(ref tids) = tid_filter {
-                    if !tids.is_empty() {
-                        // group + tag + type
-                        let placeholders: Vec<String> = tids.iter().enumerate().map(|(i, _)| format!("?{}", i + 3)).collect();
-                        let query = format!(
-                            "SELECT DISTINCT i.id, i.name, i.type_id, i.properties, i.namespace, i.created_at, i.updated_at
-                             FROM items i
-                             INNER JOIN item_groups ig ON i.id = ig.item_id
-                             INNER JOIN item_tags it ON i.id = it.item_id
-                             WHERE ig.group_id = ?1 AND it.tag_id = ?2 AND i.type_id IN ({})
-                             ORDER BY i.updated_at DESC",
-                            placeholders.join(",")
-                        );
-                        let mut q = sqlx::query_as(&query).bind(gid).bind(tid);
-                        for tid_val in tids { q = q.bind(tid_val); }
-                        q.fetch_all(&pool).await
-                    } else {
-                        sqlx::query_as(
-                            "SELECT DISTINCT i.id, i.name, i.type_id, i.properties, i.namespace, i.created_at, i.updated_at
-                             FROM items i INNER JOIN item_groups ig ON i.id = ig.item_id INNER JOIN item_tags it ON i.id = it.item_id
-                             WHERE ig.group_id = ? AND it.tag_id = ? ORDER BY i.updated_at DESC"
-                        ).bind(gid).bind(tid).fetch_all(&pool).await
-                    }
-                } else {
-                    sqlx::query_as(
-                        "SELECT DISTINCT i.id, i.name, i.type_id, i.properties, i.namespace, i.created_at, i.updated_at
-                         FROM items i INNER JOIN item_groups ig ON i.id = ig.item_id INNER JOIN item_tags it ON i.id = it.item_id
-                         WHERE ig.group_id = ? AND it.tag_id = ? ORDER BY i.updated_at DESC"
-                    ).bind(gid).bind(tid).fetch_all(&pool).await
-                }
-            } else {
-                // group only, optionally + type
-                if let Some(ref tids) = tid_filter {
-                    if !tids.is_empty() {
-                        let placeholders: Vec<String> = tids.iter().enumerate().map(|(i, _)| format!("?{}", i + 2)).collect();
-                        let query = format!(
-                            "SELECT DISTINCT i.id, i.name, i.type_id, i.properties, i.namespace, i.created_at, i.updated_at
-                             FROM items i INNER JOIN item_groups ig ON i.id = ig.item_id
-                             WHERE ig.group_id = ?1 AND i.type_id IN ({}) ORDER BY i.updated_at DESC",
-                            placeholders.join(",")
-                        );
-                        let mut q = sqlx::query_as(&query).bind(gid);
-                        for tid_val in tids { q = q.bind(tid_val); }
-                        q.fetch_all(&pool).await
-                    } else {
-                        sqlx::query_as(
-                            "SELECT DISTINCT i.id, i.name, i.type_id, i.properties, i.namespace, i.created_at, i.updated_at
-                             FROM items i INNER JOIN item_groups ig ON i.id = ig.item_id
-                             WHERE ig.group_id = ? ORDER BY i.updated_at DESC"
-                        ).bind(gid).fetch_all(&pool).await
-                    }
-                } else {
-                    sqlx::query_as(
-                        "SELECT DISTINCT i.id, i.name, i.type_id, i.properties, i.namespace, i.created_at, i.updated_at
-                         FROM items i INNER JOIN item_groups ig ON i.id = ig.item_id
-                         WHERE ig.group_id = ? ORDER BY i.updated_at DESC"
-                    ).bind(gid).fetch_all(&pool).await
-                }
-            }
-        } else if let Some(tid) = tag_id {
-            // tag only, optionally + type
-            if let Some(ref tids) = tid_filter {
-                if !tids.is_empty() {
-                    let placeholders: Vec<String> = tids.iter().enumerate().map(|(i, _)| format!("?{}", i + 2)).collect();
-                    let query = format!(
-                        "SELECT DISTINCT i.id, i.name, i.type_id, i.properties, i.namespace, i.created_at, i.updated_at
-                         FROM items i INNER JOIN item_tags it ON i.id = it.item_id
-                         WHERE it.tag_id = ?1 AND i.type_id IN ({}) ORDER BY i.updated_at DESC",
-                        placeholders.join(",")
-                    );
-                    let mut q = sqlx::query_as(&query).bind(tid);
-                    for tid_val in tids { q = q.bind(tid_val); }
-                    q.fetch_all(&pool).await
-                } else {
-                    sqlx::query_as(
-                        "SELECT DISTINCT i.id, i.name, i.type_id, i.properties, i.namespace, i.created_at, i.updated_at
-                         FROM items i INNER JOIN item_tags it ON i.id = it.item_id
-                         WHERE it.tag_id = ? ORDER BY i.updated_at DESC"
-                    ).bind(tid).fetch_all(&pool).await
-                }
-            } else {
-                sqlx::query_as(
-                    "SELECT DISTINCT i.id, i.name, i.type_id, i.properties, i.namespace, i.created_at, i.updated_at
-                     FROM items i INNER JOIN item_tags it ON i.id = it.item_id
-                     WHERE it.tag_id = ? ORDER BY i.updated_at DESC"
-                ).bind(tid).fetch_all(&pool).await
-            }
-        } else {
-            // type only or everything
-            if let Some(ref tids) = tid_filter {
-                if !tids.is_empty() {
-                    let placeholders: Vec<String> = tids.iter().enumerate().map(|(i, _)| format!("?{}", i + 1)).collect();
-                    let query = format!(
-                        "SELECT id, name, type_id, properties, namespace, created_at, updated_at
-                         FROM items WHERE type_id IN ({}) ORDER BY updated_at DESC",
-                        placeholders.join(",")
-                    );
-                    let mut q = sqlx::query_as(&query);
-                    for tid_val in tids { q = q.bind(tid_val); }
-                    q.fetch_all(&pool).await
-                } else {
-                    sqlx::query_as(
-                        "SELECT id, name, type_id, properties, namespace, created_at, updated_at
-                         FROM items ORDER BY updated_at DESC"
-                    ).fetch_all(&pool).await
-                }
-            } else {
-                sqlx::query_as(
-                    "SELECT id, name, type_id, properties, namespace, created_at, updated_at
-                     FROM items ORDER BY updated_at DESC"
-                ).fetch_all(&pool).await
-            }
-        }
-    }.map_err(|e| e.to_string())?;
+    // Fast path: no filters at all
+    if !has_group && !has_tag && !has_types {
+        let rows: Vec<(String, String, i64, String, String, String, String)> = sqlx::query_as(
+            "SELECT id, name, type_id, properties, namespace, created_at, updated_at \
+             FROM items ORDER BY updated_at DESC"
+        ).fetch_all(&pool).await.map_err(|e| e.to_string())?;
+        return Ok(map_item_rows(rows));
+    }
 
-    Ok(rows.into_iter().map(|(id, name, type_id, props_str, namespace, created_at, updated_at)| {
-        let properties: serde_json::Value = serde_json::from_str(&props_str).unwrap_or_default();
-        Item { id, name, type_id, properties, namespace, created_at, updated_at }
-    }).collect())
+    // Build query dynamically from independent filter clauses
+    let mut joins = Vec::new();
+    let mut conditions = Vec::new();
+    let mut param_idx = 1usize; // sqlx SQLite uses 1-based ?N numbered params
+
+    if has_group {
+        joins.push("INNER JOIN item_groups ig ON i.id = ig.item_id");
+        conditions.push(format!("ig.group_id = ?{}", param_idx));
+        param_idx += 1;
+    }
+    if has_tag {
+        joins.push("INNER JOIN item_tags it ON i.id = it.item_id");
+        conditions.push(format!("it.tag_id = ?{}", param_idx));
+        param_idx += 1;
+    }
+    if let Some(ref tids) = type_ids {
+        let placeholders: Vec<String> = (0..tids.len())
+            .map(|i| format!("?{}", param_idx + i))
+            .collect();
+        conditions.push(format!("i.type_id IN ({})", placeholders.join(",")));
+    }
+
+    let joins_str = joins.join(" ");
+    let where_str = conditions.join(" AND ");
+    // DISTINCT needed when joining to avoid cartesian-product duplicates
+    let distinct = if !joins.is_empty() { "DISTINCT " } else { "" };
+
+    let query = format!(
+        "SELECT {}i.id, i.name, i.type_id, i.properties, i.namespace, i.created_at, i.updated_at \
+         FROM items i {} WHERE {} ORDER BY i.updated_at DESC",
+        distinct, joins_str, where_str
+    );
+
+    let mut q = sqlx::query_as::<_, (String, String, i64, String, String, String, String)>(&query);
+    if let Some(gid) = group_id { q = q.bind(gid); }
+    if let Some(tid) = tag_id { q = q.bind(tid); }
+    if let Some(tids) = &type_ids { for tid in tids { q = q.bind(tid); } }
+
+    let rows = q.fetch_all(&pool).await.map_err(|e| e.to_string())?;
+    Ok(map_item_rows(rows))
 }
 
 #[tauri::command]
 pub async fn update_item(
+    window: tauri::Window,
     state: State<'_, AppState>,
     id: String,
     name: Option<String>,
     properties: Option<serde_json::Value>,
 ) -> Result<Item, String> {
-    let pool = get_pool(&state)?;
+    let pool = get_pool(&window, &state)?;
     let now = chrono::Utc::now().to_rfc3339();
 
-    // Build dynamic UPDATE
-    if let Some(ref n) = name {
-        sqlx::query("UPDATE items SET name = ?, updated_at = ? WHERE id = ?")
-            .bind(n).bind(&now).bind(&id)
-            .execute(&pool).await.map_err(|e| e.to_string())?;
-    }
-    if let Some(ref p) = properties {
-        let props_str = serde_json::to_string(p).map_err(|e| e.to_string())?;
-        sqlx::query("UPDATE items SET properties = ?, updated_at = ? WHERE id = ?")
-            .bind(&props_str).bind(&now).bind(&id)
-            .execute(&pool).await.map_err(|e| e.to_string())?;
-    }
-    // Always update updated_at if anything changed
-    if name.is_some() || properties.is_some() {
-        // already done above
-    } else {
+    if name.is_none() && properties.is_none() {
         return Err("Nothing to update".to_string());
     }
+
+    // Build single dynamic UPDATE — one atomic statement for all changed columns
+    let mut set_parts: Vec<String> = Vec::new();
+    if name.is_some()       { set_parts.push("name = ?".to_string()); }
+    if properties.is_some() { set_parts.push("properties = ?".to_string()); }
+    set_parts.push("updated_at = ?".to_string());
+
+    let query = format!("UPDATE items SET {} WHERE id = ?", set_parts.join(", "));
+
+    let mut q = sqlx::query(&query);
+    if let Some(ref n) = name { q = q.bind(n); }
+
+    // Serialized properties must outlive the query execution
+    let props_json: Option<String> = if let Some(ref p) = properties {
+        Some(serde_json::to_string(p).map_err(|e| e.to_string())?)
+    } else {
+        None
+    };
+    if let Some(ref pj) = props_json { q = q.bind(pj); }
+
+    q = q.bind(&now).bind(&id);
+    q.execute(&pool).await.map_err(|e| e.to_string())?;
 
     // Fetch updated row
     let (name, type_id, props_str, namespace, created_at, updated_at): (
@@ -321,25 +291,120 @@ pub async fn update_item(
 
 #[tauri::command]
 pub async fn delete_item(
+    window: tauri::Window,
     state: State<'_, AppState>,
     id: String,
 ) -> Result<(), String> {
-    let pool = get_pool(&state)?;
-    let repo_path = get_repo_path(&state)?;
+    let pool = get_pool(&window, &state)?;
+    let repo_path = get_repo_path(&window, &state)?;
 
-    // Delete hash folder
-    let item_dir = Path::new(&repo_path).join(&id);
-    if item_dir.exists() {
-        std::fs::remove_dir_all(&item_dir)
-            .map_err(|e| format!("Cannot delete item folder: {}", e))?;
-    }
-
-    // CASCADE handles junction tables
+    // Delete from DB first (in transaction) — CASCADE handles junction tables.
+    // If this succeeds, the item is gone from the app regardless of filesystem outcome.
+    let mut tx = pool.begin().await.map_err(|e| e.to_string())?;
     sqlx::query("DELETE FROM items WHERE id = ?")
         .bind(&id)
-        .execute(&pool)
+        .execute(&mut *tx)
         .await
         .map_err(|e| e.to_string())?;
+    tx.commit().await.map_err(|e| e.to_string())?;
+
+    // Clean up sub_repos.json if this item was a sub-repo
+    let sub_repos_path = Path::new(&repo_path).join(".index").join("sub_repos.json");
+    if sub_repos_path.exists() {
+        if let Ok(raw) = std::fs::read_to_string(&sub_repos_path) {
+            if let Ok(mut map) = serde_json::from_str::<serde_json::Map<String, serde_json::Value>>(&raw) {
+                if map.remove(&id).is_some() {
+                    let _ = std::fs::write(&sub_repos_path, serde_json::to_string_pretty(&map).unwrap_or_default());
+                }
+            }
+        }
+    }
+
+    // Then delete hash folder (best-effort — ignore errors, orphaned folder
+    // is a harmless disk leak, not data corruption)
+    let item_dir = Path::new(&repo_path).join(&id);
+    if item_dir.exists() {
+        let _ = std::fs::remove_dir_all(&item_dir);
+    }
 
     Ok(())
+}
+
+#[tauri::command]
+pub async fn open_item_folder(
+    window: tauri::Window,
+    state: State<'_, AppState>,
+    item_id: String,
+) -> Result<(), String> {
+    let repo_path = get_repo_path(&window, &state)?;
+    let item_dir = Path::new(&repo_path).join(&item_id);
+    open::that(item_dir.to_str().ok_or("Invalid path")?)
+        .map_err(|e| format!("Cannot open folder: {}", e))
+}
+
+#[tauri::command]
+pub async fn create_sub_repo(
+    window: tauri::Window,
+    state: State<'_, AppState>,
+    item_id: String,
+) -> Result<(), String> {
+    let repo_path = get_repo_path(&window, &state)?;
+    let item_dir = Path::new(&repo_path).join(&item_id);
+    let index_dir = item_dir.join(".index");
+
+    if index_dir.exists() {
+        return Err("Sub-repo already exists".to_string());
+    }
+
+    std::fs::create_dir_all(&index_dir)
+        .map_err(|e| format!("Cannot create .index: {}", e))?;
+
+    let db_path = index_dir.join("index.db");
+    let pool = crate::db::create_pool(&db_path)
+        .await
+        .map_err(|e| format!("DB error: {}", e))?;
+    crate::db::run_migrations(&pool)
+        .await
+        .map_err(|e| format!("Migration error: {}", e))?;
+    pool.close().await;
+
+    let state_json = index_dir.join("state.json");
+    std::fs::write(&state_json, r#"{"theme":"light"}"#)
+        .map_err(|e| format!("Write error: {}", e))?;
+
+    let workspaces_dir = index_dir.join("workspaces");
+    std::fs::create_dir_all(&workspaces_dir)
+        .map_err(|e| format!("Cannot create workspaces dir: {}", e))?;
+
+    // Record in sub_repos.json
+    let sub_repos_path = Path::new(&repo_path).join(".index").join("sub_repos.json");
+    let mut map: serde_json::Map<String, serde_json::Value> = if sub_repos_path.exists() {
+        let raw = std::fs::read_to_string(&sub_repos_path).unwrap_or_default();
+        serde_json::from_str(&raw).unwrap_or_default()
+    } else {
+        serde_json::Map::new()
+    };
+    map.insert(item_id, serde_json::Value::String("active".to_string()));
+    std::fs::write(&sub_repos_path, serde_json::to_string_pretty(&map).unwrap_or_default())
+        .map_err(|e| format!("Write error: {}", e))?;
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn list_sub_repos(
+    window: tauri::Window,
+    state: State<'_, AppState>,
+) -> Result<serde_json::Map<String, serde_json::Value>, String> {
+    let repo_path = get_repo_path(&window, &state)?;
+    let sub_repos_path = Path::new(&repo_path).join(".index").join("sub_repos.json");
+
+    if !sub_repos_path.exists() {
+        return Ok(serde_json::Map::new());
+    }
+
+    let raw = std::fs::read_to_string(&sub_repos_path)
+        .map_err(|e| format!("Read error: {}", e))?;
+    serde_json::from_str(&raw)
+        .map_err(|e| format!("Parse error: {}", e))
 }
