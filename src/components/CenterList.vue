@@ -121,4 +121,5 @@ async function deleteItem() { if (menu.item && confirm(t('centerList.confirmDele
 }
 .menu-item:hover { background: var(--danger-subtle); }
 .repo-badge { color: var(--accent); flex-shrink: 0; margin-left: -4px; }
+.row.sel .repo-badge { color: var(--accent-fg); }
 </style>
