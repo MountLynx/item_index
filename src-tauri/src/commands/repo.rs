@@ -1,5 +1,5 @@
-use std::path::Path;
-use tauri::State;
+use std::path::{Path, PathBuf};
+use tauri::{State, WebviewWindowBuilder};
 use sqlx::SqlitePool;
 use crate::db;
 use crate::models::RepoInfo;
@@ -188,6 +188,7 @@ pub async fn save_state(
     let repo_path = get_repo_path(&window, &state)?;
     let state_path = Path::new(&repo_path).join(".index").join("state.json");
 
+    // Read existing, merge to preserve unknown keys
     let mut current: serde_json::Value = if state_path.exists() {
         let content = std::fs::read_to_string(&state_path)
             .map_err(|e| format!("Read error: {}", e))?;
@@ -197,6 +198,7 @@ pub async fn save_state(
         serde_json::json!({})
     };
 
+    // Merge: new_state keys overwrite current
     if let (serde_json::Value::Object(ref mut cur_map), serde_json::Value::Object(new_map)) = (&mut current, &new_state) {
         for (k, v) in new_map {
             cur_map.insert(k.clone(), v.clone());
@@ -218,9 +220,6 @@ pub async fn open_sub_repo_window(
     state: State<'_, AppState>,
     item_id: String,
 ) -> Result<(), String> {
-    use std::path::PathBuf;
-    use tauri::WebviewWindowBuilder;
-
     let repo_path = get_repo_path(&window, &state)?;
     let item_dir = Path::new(&repo_path).join(&item_id);
     let sub_repo_path = item_dir.to_str().ok_or("Invalid item path")?.to_string();
@@ -253,14 +252,14 @@ pub async fn open_sub_repo_window(
 
     let label = format!("subrepo-{}", &item_id);
 
-    // Store sub-repo path so the new window picks it up on mount
-    state.pending_sub_repos.lock().unwrap().insert(label.clone(), sub_repo_path);
-
     WebviewWindowBuilder::new(&app, &label, tauri::WebviewUrl::App(PathBuf::from("index.html")))
         .title("Index - Sub-Repo")
         .inner_size(1200.0, 800.0)
         .build()
         .map_err(|e| format!("Cannot create window: {}", e))?;
+
+    // Store sub-repo path so the new window picks it up on mount
+    state.pending_sub_repos.lock().unwrap().insert(label.clone(), sub_repo_path);
 
     Ok(())
 }
