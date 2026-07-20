@@ -48,7 +48,7 @@ const itemStore = useItemStore()
 const workspaceStore = useWorkspaceStore()
 
 const showNewItem = ref(false)
-const rightTab = ref<'detail' | 'types'>('detail')
+const rightTab = ref<'detail' | 'types' | 'plugins'>('detail')
 const toastRef = ref<InstanceType<typeof Toast> | null>(null)
 const settingsRef = ref<InstanceType<typeof SettingsModal> | null>(null)
 provide('openSettings', () => settingsRef.value?.open())

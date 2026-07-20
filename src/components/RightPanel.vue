@@ -64,6 +64,25 @@
 
       <!-- Tab: Type Manager -->
       <TypeManager v-else-if="activeTab === 'types'" />
+
+      <!-- Tab: Plugins (rightPanelAddons) -->
+      <aside v-else-if="activeTab === 'plugins'" class="rp">
+        <div v-if="addonPlugins.length === 0" class="empty">
+          <TablerIcon name="plug-connected" :size="28" :stroke="1" />
+          <p>暂无插件，在 Workspace 设置中添加</p>
+        </div>
+        <div v-for="addon in addonPlugins" :key="addon.plugin" class="addon-panel">
+          <div v-if="addon.loading" class="cp-placeholder">
+            <div class="cp-spinner"></div>
+            <p>加载 "{{ addon.plugin }}"…</p>
+          </div>
+          <div v-else-if="addon.error" class="cp-placeholder error">
+            <TablerIcon name="alert-triangle" :size="18" />
+            <p>{{ addon.error }}</p>
+          </div>
+          <component v-else-if="addon.component" :is="addon.component" :context="addon.context" />
+        </div>
+      </aside>
     </div>
 
     <ActivityBar
@@ -75,11 +94,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch, markRaw } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useItemStore } from '@/stores/items'
 import { useGroupStore } from '@/stores/groups'
 import { useTagStore } from '@/stores/tags'
+import { useWorkspaceStore } from '@/stores/workspace'
+import { usePluginLoader } from '@/composables/usePluginLoader'
+import { buildPluginContext } from '@/composables/usePluginContext'
 import PropertiesForm from './PropertiesForm.vue'
 import FileTree from './FileTree.vue'
 import TablerIcon from './TablerIcon.vue'
@@ -89,7 +111,7 @@ import TypeManager from './TypeManager.vue'
 const { t } = useI18n()
 
 defineProps<{
-  activeTab: 'detail' | 'types'
+  activeTab: 'detail' | 'types' | 'plugins'
 }>()
 
 defineEmits<{
@@ -99,11 +121,51 @@ defineEmits<{
 const tabs = computed(() => [
   { id: 'detail', icon: 'file-description', title: t('rightPanel.detail') },
   { id: 'types', icon: 'category', title: t('common.category') },
+  { id: 'plugins', icon: 'plug-connected', title: '插件' },
 ])
 
 const itemStore = useItemStore()
 const groupStore = useGroupStore()
 const tagStore = useTagStore()
+const wsStore = useWorkspaceStore()
+const { loadPlugin } = usePluginLoader()
+
+// ── Right-panel addon plugins ──
+interface AddonState {
+  plugin: string
+  component: any
+  context: any
+  loading: boolean
+  error: string | null
+}
+const addonPlugins = ref<AddonState[]>([])
+
+async function loadAddonPlugins() {
+  const addons = wsStore.active?.rightPanelAddons || []
+  const states: AddonState[] = addons.map(a => ({
+    plugin: a.plugin,
+    component: null,
+    context: null,
+    loading: true,
+    error: null,
+  }))
+  addonPlugins.value = states
+
+  for (const state of addonPlugins.value) {
+    try {
+      const result = await loadPlugin(state.plugin)
+      state.component = markRaw(result.component)
+      state.context = buildPluginContext(result.manifest, 
+        addons.find(a => a.plugin === state.plugin)?.config || {})
+      state.loading = false
+    } catch (e: any) {
+      state.error = e.message || '加载失败'
+      state.loading = false
+    }
+  }
+}
+
+watch(() => wsStore.active, () => { loadAddonPlugins() }, { immediate: true })
 
 const detail = computed(() => itemStore.detail)
 const addingGroup = ref(false)
