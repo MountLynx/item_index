@@ -1,9 +1,10 @@
 import { computed, type ComputedRef } from 'vue'
+import { invoke } from '@tauri-apps/api/core'
 import { useItemStore } from '@/stores/items'
 import { useTypeStore } from '@/stores/types'
 import { useGroupStore } from '@/stores/groups'
 import { useTagStore } from '@/stores/tags'
-import type { Item, PluginManifest, ItemType, Group, Tag } from '@/types/bindings'
+import type { Item, PluginManifest, ItemType, Group, Tag, QueryParams, QueryResult } from '@/types/bindings'
 
 export interface PluginContext {
   items: ComputedRef<Item[]>
@@ -15,6 +16,7 @@ export interface PluginContext {
   refreshItems: () => Promise<void>
   config: Record<string, unknown>
   filteredOut: ComputedRef<{ count: number; reason: string }>
+  query: (params: QueryParams) => Promise<QueryResult>
 }
 
 export function buildPluginContext(
@@ -74,5 +76,8 @@ export function buildPluginContext(
     refreshItems: async () => { await itemStore.fetchList() },
     config: pluginConfig,
     filteredOut,
+    query: async (params: QueryParams) => {
+      return await invoke<QueryResult>('query_items', params as unknown as Record<string, unknown>)
+    },
   }
 }
