@@ -88,29 +88,31 @@ exports.default = function (Vue) {
       var editMode = ref('query')          // 'query' | 'compute'
       var editVarName = ref('')
 
-      // ── Persistence ──
-      function loadConfigs() {
-        try {
-          var raw = localStorage.getItem(STORAGE_KEY)
-          if (raw) { configs.value = JSON.parse(raw) }
-        } catch (e) { /* ignore */ }
-      }
-      function saveConfigs() {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(configs.value))
-      }
-
-      // ── Cache ──
-      async function loadCache() {
+      // ── Persistence (per-repo via .index/plugin-cache/stats.json) ──
+      async function loadData() {
         try {
           var data = await ctx.readCache()
-          if (data && Object.keys(data).length > 0) {
-            cache.value = data
+          if (data && data.configs && Array.isArray(data.configs)) {
+            configs.value = data.configs
           }
-        } catch (e) { /* cache not available */ }
+          if (data && data.cache) {
+            cache.value = data.cache
+          }
+        } catch (e) { /* ignore */ }
+        // Migration: if nothing loaded from .index, try old localStorage
+        if (configs.value.length === 0) {
+          try {
+            var raw = localStorage.getItem(STORAGE_KEY)
+            if (raw) {
+              configs.value = JSON.parse(raw)
+              localStorage.removeItem(STORAGE_KEY)
+            }
+          } catch (e) { /* ignore */ }
+        }
       }
-      async function saveCache(variables) {
-        try {
-          // Only save variables that are defined (not NaN/undefined)
+      async function saveData(variables) {
+        var data = { configs: configs.value }
+        if (variables) {
           var clean = {}
           var keys = Object.keys(variables)
           for (var i = 0; i < keys.length; i++) {
@@ -120,9 +122,10 @@ exports.default = function (Vue) {
               clean[k] = v
             }
           }
+          data.cache = clean
           cache.value = clean
-          await ctx.writeCache(clean)
-        } catch (e) { /* ignore write errors */ }
+        }
+        try { await ctx.writeCache(data) } catch (e) { /* ignore */ }
       }
 
       // ── Dependency graph ──
@@ -310,7 +313,7 @@ exports.default = function (Vue) {
             await refreshOne(dg.graph[order[i]].config, variables)
           }
           // Persist variables to cache
-          await saveCache(variables)
+          await saveData(variables)
         } catch (e) {
           console.error('Stats refresh error:', e)
         } finally {
@@ -384,7 +387,7 @@ exports.default = function (Vue) {
             filter: filterObj, extract: editExtract.value.trim(),
             expression: editExpression.value.trim()
           })
-          saveConfigs()
+          saveData()
           editingId.value = null
           refreshAll()
         } else {
@@ -396,7 +399,7 @@ exports.default = function (Vue) {
             cfg.filter = filterObj
             cfg.extract = editExtract.value.trim()
             cfg.expression = editExpression.value.trim()
-            saveConfigs()
+            saveData()
             editingId.value = null
             refreshAll()
           }
@@ -405,7 +408,7 @@ exports.default = function (Vue) {
       function deleteConfig(id) {
         configs.value = configs.value.filter(function (c) { return c.id !== id })
         delete results.value[id]
-        saveConfigs()
+        saveData()
       }
       function toggleExpand(id) {
         var s = new Set(expandedIds.value)
@@ -415,8 +418,7 @@ exports.default = function (Vue) {
 
       // ── Lifecycle ──
       onMounted(async function () {
-        loadConfigs()
-        await loadCache()
+        await loadData()
         // Display cached values immediately for configs with varName
         if (cache.value) {
           var cfgs = configs.value
