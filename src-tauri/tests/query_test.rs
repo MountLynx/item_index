@@ -231,3 +231,76 @@ async fn test_query_invalid_field() {
     let result = index_lib::commands::query::execute_query(&pool, &filter, None, None, None).await;
     assert!(result.is_err());
 }
+
+/// Test OR with mixed regex and non-regex conditions.
+#[tokio::test]
+async fn test_query_or_with_regex() {
+    use sqlx::sqlite::SqlitePool;
+    use index_lib::models::FilterNode;
+    use serde_json::json;
+
+    let pool = SqlitePool::connect("sqlite::memory:")
+        .await.expect("failed to connect");
+    sqlx::migrate!("./migrations").run(&pool).await.unwrap();
+
+    sqlx::query("INSERT INTO items (id, name, type_id, properties, namespace, created_at, updated_at) VALUES ('g001', 'Apple', 1, '{}', 'default', '2024-01-01T00:00:00Z', '2024-01-01T00:00:00Z')")
+        .execute(&pool).await.unwrap();
+    sqlx::query("INSERT INTO items (id, name, type_id, properties, namespace, created_at, updated_at) VALUES ('g002', 'Banana', 1, '{}', 'default', '2024-01-02T00:00:00Z', '2024-01-02T00:00:00Z')")
+        .execute(&pool).await.unwrap();
+    sqlx::query("INSERT INTO items (id, name, type_id, properties, namespace, created_at, updated_at) VALUES ('g003', 'Cherry', 1, '{}', 'default', '2024-01-03T00:00:00Z', '2024-01-03T00:00:00Z')")
+        .execute(&pool).await.unwrap();
+
+    // name contains "App" OR name matches regex "^B"
+    let filter = FilterNode::Logic {
+        or: Some(vec![
+            FilterNode::Condition { field: "name".to_string(), op: "contains".to_string(), value: json!("App") },
+            FilterNode::Condition { field: "name".to_string(), op: "regex".to_string(), value: json!("^B") },
+        ]),
+        and: None,
+    };
+
+    let result = index_lib::commands::query::execute_query(&pool, &filter, None, None, None)
+        .await.expect("query failed");
+
+    // Should match "Apple" (contains "App") AND "Banana" (matches ^B)
+    assert_eq!(result.total, 2);
+    let ids: Vec<&str> = result.items.iter().map(|i| i.id.as_str()).collect();
+    assert!(ids.contains(&"g001")); // Apple
+    assert!(ids.contains(&"g002")); // Banana
+}
+
+/// Test all-regex OR group.
+#[tokio::test]
+async fn test_query_all_regex_or() {
+    use sqlx::sqlite::SqlitePool;
+    use index_lib::models::FilterNode;
+    use serde_json::json;
+
+    let pool = SqlitePool::connect("sqlite::memory:")
+        .await.expect("failed to connect");
+    sqlx::migrate!("./migrations").run(&pool).await.unwrap();
+
+    sqlx::query("INSERT INTO items (id, name, type_id, properties, namespace, created_at, updated_at) VALUES ('h001', 'Dog', 1, '{}', 'default', '2024-01-01T00:00:00Z', '2024-01-01T00:00:00Z')")
+        .execute(&pool).await.unwrap();
+    sqlx::query("INSERT INTO items (id, name, type_id, properties, namespace, created_at, updated_at) VALUES ('h002', 'Cat', 1, '{}', 'default', '2024-01-02T00:00:00Z', '2024-01-02T00:00:00Z')")
+        .execute(&pool).await.unwrap();
+    sqlx::query("INSERT INTO items (id, name, type_id, properties, namespace, created_at, updated_at) VALUES ('h003', 'Bird', 1, '{}', 'default', '2024-01-03T00:00:00Z', '2024-01-03T00:00:00Z')")
+        .execute(&pool).await.unwrap();
+
+    // name matches "^D" OR name matches "^C"
+    let filter = FilterNode::Logic {
+        or: Some(vec![
+            FilterNode::Condition { field: "name".to_string(), op: "regex".to_string(), value: json!("^D") },
+            FilterNode::Condition { field: "name".to_string(), op: "regex".to_string(), value: json!("^C") },
+        ]),
+        and: None,
+    };
+
+    let result = index_lib::commands::query::execute_query(&pool, &filter, None, None, None)
+        .await.expect("query failed");
+
+    assert_eq!(result.total, 2);
+    let ids: Vec<&str> = result.items.iter().map(|i| i.id.as_str()).collect();
+    assert!(ids.contains(&"h001")); // Dog
+    assert!(ids.contains(&"h002")); // Cat
+}

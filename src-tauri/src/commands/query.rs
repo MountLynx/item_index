@@ -94,31 +94,41 @@ fn push_bind_value(
     Ok(())
 }
 
+/// Check whether every condition in the subtree is a regex condition.
+/// These nodes produce no SQL and can be skipped entirely during SQL generation.
+fn is_pure_regex(node: &FilterNode) -> bool {
+    match node {
+        FilterNode::Condition { op, .. } => op == "regex",
+        FilterNode::Logic { and, or } => {
+            let kids = and.as_ref().or(or.as_ref());
+            kids.map(|k| k.iter().all(is_pure_regex)).unwrap_or(true)
+        }
+    }
+}
+
+/// Check whether any condition in the subtree is a regex condition.
+/// Used to detect OR groups that must be deferred to evaluate_filter.
+fn contains_regex(node: &FilterNode) -> bool {
+    match node {
+        FilterNode::Condition { op, .. } => op == "regex",
+        FilterNode::Logic { and, or } => {
+            let kids = and.as_ref().or(or.as_ref());
+            kids.map(|k| k.iter().any(contains_regex)).unwrap_or(false)
+        }
+    }
+}
+
 /// Translate a FilterNode into SQL WHERE clause fragments using QueryBuilder.
-/// Returns any regex conditions that couldn't be translated to SQL (for post-filtering).
 fn translate_node(
     node: &FilterNode,
     fs: &mut FieldSet,
     qb: &mut QueryBuilder<'_, sqlx::Sqlite>,
-    regexes: &mut Vec<(String, regex::Regex)>,
 ) -> Result<(), String> {
     match node {
         FilterNode::Condition { field, op, value } => {
-            // Check if this is a regex condition — defer to Rust
+            // Regex conditions are deferred to Rust-side post-filtering (evaluate_filter)
             if op == "regex" {
-                let pattern = value.as_str().unwrap_or("");
-                match regex::Regex::new(pattern) {
-                    Ok(re) => {
-                        regexes.push((field.clone(), re));
-                        return Ok(());
-                    }
-                    Err(e) => {
-                        return Err(format!(
-                            "Invalid regex pattern '{}': {}",
-                            pattern, e
-                        ));
-                    }
-                }
+                return Ok(());
             }
 
             // Validate operator
@@ -181,67 +191,36 @@ fn translate_node(
                 .as_ref()
                 .or(or.as_ref())
                 .ok_or("Logic node must have 'and' or 'or'")?;
-            let connector = if and.is_some() { " AND " } else { " OR " };
+            let is_or = or.is_some();
+            let connector = if is_or { " OR " } else { " AND " };
 
-            let mut first = true;
             qb.push("(");
-            for child in kids.iter() {
-                // If this child is purely regex conditions, skip SQL generation
-                // and just collect the regex patterns for post-filtering.
-                if is_pure_regex(child) {
-                    collect_regex_from_node(child, regexes);
-                    continue;
-                }
 
-                if !first {
-                    qb.push(connector);
-                }
-                first = false;
-
-                let mut child_regexes: Vec<(String, regex::Regex)> = Vec::new();
-                translate_node(child, fs, qb, &mut child_regexes)?;
-                regexes.extend(child_regexes);
-            }
-            if first {
+            // OR with any regex child: can't filter in SQL because the regex
+            // could match items that the non-regex branches miss. Defer entirely
+            // to evaluate_filter by emitting a no-op (1 = 1).
+            if is_or && kids.iter().any(contains_regex) {
                 qb.push("1 = 1");
+            } else {
+                let mut first = true;
+                for child in kids.iter() {
+                    // Skip children that produce no SQL (pure regex subtrees).
+                    // evaluate_filter will apply their constraints in post-filter.
+                    if is_pure_regex(child) {
+                        continue;
+                    }
+                    if !first {
+                        qb.push(connector);
+                    }
+                    first = false;
+                    translate_node(child, fs, qb)?;
+                }
+                if first {
+                    qb.push("1 = 1");
+                }
             }
             qb.push(")");
             Ok(())
-        }
-    }
-}
-
-/// Check if a filter node is purely a regex condition (or a Logic node containing
-/// only regex conditions). These nodes produce no SQL and should be deferred to
-/// Rust-side post-filtering.
-fn is_pure_regex(node: &FilterNode) -> bool {
-    match node {
-        FilterNode::Condition { op, .. } => op == "regex",
-        FilterNode::Logic { and, or } => {
-            let kids = and.as_ref().or(or.as_ref());
-            kids.map(|k| k.iter().all(is_pure_regex)).unwrap_or(true)
-        }
-    }
-}
-
-/// Collect regex patterns from a node that is known to be pure regex (all children
-/// are regex-only). Does not generate any SQL.
-fn collect_regex_from_node(node: &FilterNode, regexes: &mut Vec<(String, regex::Regex)>) {
-    match node {
-        FilterNode::Condition { field, value, .. } => {
-            if let Some(pattern) = value.as_str() {
-                if let Ok(re) = regex::Regex::new(pattern) {
-                    regexes.push((field.clone(), re));
-                }
-            }
-        }
-        FilterNode::Logic { and, or } => {
-            let kids = and.as_ref().or(or.as_ref());
-            if let Some(kids) = kids {
-                for child in kids {
-                    collect_regex_from_node(child, regexes);
-                }
-            }
         }
     }
 }
@@ -274,25 +253,94 @@ fn get_property_value(
     properties.get(field).cloned().unwrap_or(serde_json::Value::Null)
 }
 
-/// Get the string representation of a field value from an item (for regex matching).
-fn get_field_value(item: &Item, field: &str) -> String {
+/// Get the typed field value from an item (for evaluate_filter).
+fn get_field_value(item: &Item, field: &str) -> serde_json::Value {
     match field {
-        "name" => item.name.clone(),
-        "type_id" => item.type_id.to_string(),
-        "created_at" => item.created_at.clone(),
-        "updated_at" => item.updated_at.clone(),
-        _ => match &item.properties {
-            serde_json::Value::Object(map) => map
-                .get(field)
-                .map(|v| match v {
-                    serde_json::Value::String(s) => s.clone(),
-                    serde_json::Value::Number(n) => n.to_string(),
-                    serde_json::Value::Bool(b) => b.to_string(),
-                    _ => String::new(),
-                })
-                .unwrap_or_default(),
-            _ => String::new(),
-        },
+        "name" => serde_json::Value::String(item.name.clone()),
+        "type_id" => serde_json::json!(item.type_id),
+        "created_at" => serde_json::Value::String(item.created_at.clone()),
+        "updated_at" => serde_json::Value::String(item.updated_at.clone()),
+        _ => item.properties.get(field).cloned().unwrap_or(serde_json::Value::Null),
+    }
+}
+
+/// Compare two serde_json::Values for ordering (used by evaluate_filter).
+fn compare_values(a: &serde_json::Value, b: &serde_json::Value) -> std::cmp::Ordering {
+    match (a, b) {
+        (serde_json::Value::Number(an), serde_json::Value::Number(bn)) => {
+            match (an.as_f64(), bn.as_f64()) {
+                (Some(af), Some(bf)) => af.partial_cmp(&bf).unwrap_or(std::cmp::Ordering::Equal),
+                _ => std::cmp::Ordering::Equal,
+            }
+        }
+        (serde_json::Value::String(av), serde_json::Value::String(bv)) => av.cmp(bv),
+        _ => std::cmp::Ordering::Equal,
+    }
+}
+
+/// Post-filter items using the original filter tree. Evaluates ALL conditions (both
+/// regex and non-regex) so that the OR/AND structure is correctly preserved. SQL acts
+/// as a pre-filter (superset) for performance; this function is the final authority.
+fn evaluate_filter(item: &Item, node: &FilterNode) -> bool {
+    match node {
+        FilterNode::Condition { field, op, value } => {
+            let val = get_field_value(item, field);
+            match op.as_str() {
+                "=" => val == *value,
+                "!=" => val != *value,
+                ">" => compare_values(&val, value) == std::cmp::Ordering::Greater,
+                "<" => compare_values(&val, value) == std::cmp::Ordering::Less,
+                ">=" => matches!(
+                    compare_values(&val, value),
+                    std::cmp::Ordering::Greater | std::cmp::Ordering::Equal
+                ),
+                "<=" => matches!(
+                    compare_values(&val, value),
+                    std::cmp::Ordering::Less | std::cmp::Ordering::Equal
+                ),
+                "in" => value
+                    .as_array()
+                    .map(|arr| arr.contains(&val))
+                    .unwrap_or(false),
+                "contains" => {
+                    let s = val.as_str().unwrap_or("").to_lowercase();
+                    let pat = value.as_str().unwrap_or("").to_lowercase();
+                    s.contains(&pat)
+                }
+                "is_null" => {
+                    val.is_null()
+                        || val.as_str().map(|s| s.is_empty() || s == "null").unwrap_or(false)
+                }
+                "is_not_null" => {
+                    !val.is_null()
+                        && val.as_str().map(|s| !s.is_empty() && s != "null").unwrap_or(true)
+                }
+                "regex" => {
+                    let pattern = value.as_str().unwrap_or("");
+                    match regex::Regex::new(pattern) {
+                        Ok(re) => {
+                            let s = val.as_str().unwrap_or("");
+                            re.is_match(s)
+                        }
+                        Err(_) => false,
+                    }
+                }
+                _ => true,
+            }
+        }
+        FilterNode::Logic { and, or } => {
+            let kids = and.as_ref().or(or.as_ref());
+            match kids {
+                None => true,
+                Some(kids) => {
+                    if and.is_some() {
+                        kids.iter().all(|child| evaluate_filter(item, child))
+                    } else {
+                        kids.iter().any(|child| evaluate_filter(item, child))
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -306,7 +354,6 @@ pub async fn execute_query(
     limit: Option<i64>,
 ) -> Result<QueryResult, String> {
     let mut fs = FieldSet::new();
-    let mut regexes: Vec<(String, regex::Regex)> = Vec::new();
 
     // Pre-scan to determine which JOINs are needed
     scan_fields(filter, &mut fs);
@@ -340,7 +387,7 @@ pub async fn execute_query(
 
     qb.push(" WHERE ");
     let before_where = qb.sql().len();
-    translate_node(filter, &mut fs, &mut qb, &mut regexes)?;
+    translate_node(filter, &mut fs, &mut qb)?;
     if qb.sql().len() == before_where {
         qb.push("1 = 1");
     }
@@ -393,15 +440,8 @@ pub async fn execute_query(
         )
         .collect();
 
-    // Apply deferred regex filters
-    if !regexes.is_empty() {
-        items.retain(|item| {
-            regexes.iter().all(|(field, re)| {
-                let val = get_field_value(item, field);
-                re.is_match(&val)
-            })
-        });
-    }
+    // Apply deferred regex filters (preserving AND/OR structure)
+    items.retain(|item| evaluate_filter(item, filter));
 
     let total = items.len() as i64;
 
@@ -467,15 +507,13 @@ mod tests {
         };
         let mut fs = FieldSet::new();
         let mut qb = QueryBuilder::new("");
-        let mut regexes = Vec::new();
-        translate_node(&node, &mut fs, &mut qb, &mut regexes).unwrap();
+        translate_node(&node, &mut fs, &mut qb).unwrap();
         let sql = qb.sql();
         assert!(
             sql.contains("i.name LIKE"),
             "SQL should contain LIKE: {}",
             sql
         );
-        assert!(regexes.is_empty(), "Should have no regexes");
     }
 
     #[test]
@@ -487,15 +525,13 @@ mod tests {
         };
         let mut fs = FieldSet::new();
         let mut qb = QueryBuilder::new("");
-        let mut regexes = Vec::new();
-        translate_node(&node, &mut fs, &mut qb, &mut regexes).unwrap();
+        translate_node(&node, &mut fs, &mut qb).unwrap();
         let sql = qb.sql();
         assert!(
             sql.is_empty(),
             "Regex condition should produce no SQL, got: {}",
             sql
         );
-        assert_eq!(regexes.len(), 1, "Should have one regex");
     }
 
     #[test]
@@ -519,8 +555,7 @@ mod tests {
         };
         let mut fs = FieldSet::new();
         let mut qb = QueryBuilder::new("");
-        let mut regexes = Vec::new();
-        translate_node(&node, &mut fs, &mut qb, &mut regexes).unwrap();
+        translate_node(&node, &mut fs, &mut qb).unwrap();
         let sql = qb.sql();
         assert!(
             sql.contains("i.name LIKE"),
@@ -537,7 +572,6 @@ mod tests {
             "Should not have dangling AND: {}",
             sql
         );
-        assert_eq!(regexes.len(), 1, "Should have one regex");
     }
 
     #[test]
@@ -561,15 +595,13 @@ mod tests {
         };
         let mut fs = FieldSet::new();
         let mut qb = QueryBuilder::new("");
-        let mut regexes = Vec::new();
-        translate_node(&node, &mut fs, &mut qb, &mut regexes).unwrap();
+        translate_node(&node, &mut fs, &mut qb).unwrap();
         let sql = qb.sql();
         assert!(
             sql.contains("1 = 1"),
             "All-regex Logic should produce '1 = 1': {}",
             sql
         );
-        assert_eq!(regexes.len(), 2, "Should have two regexes");
     }
 
     #[test]
@@ -593,8 +625,7 @@ mod tests {
         };
         let mut fs = FieldSet::new();
         let mut qb = QueryBuilder::new("");
-        let mut regexes = Vec::new();
-        translate_node(&node, &mut fs, &mut qb, &mut regexes).unwrap();
+        translate_node(&node, &mut fs, &mut qb).unwrap();
         let sql = qb.sql();
         let and_count = sql.matches(" AND ").count();
         assert_eq!(and_count, 1, "Should have exactly one AND: {}", sql);
@@ -603,6 +634,5 @@ mod tests {
             "Should not have double AND: {}",
             sql
         );
-        assert!(regexes.is_empty(), "Should have no regexes");
     }
 }
