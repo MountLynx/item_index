@@ -10,10 +10,11 @@ export interface Field {
   id: number
   type_id: number
   name: string
-  field_type: 'text' | 'checkbox' | 'date' | 'number'
+  field_type: 'text' | 'checkbox' | 'date' | 'number' | 'dropdown'
   icon: string
   position: number
   label: string
+  options: string[]
 }
 
 export interface Item {

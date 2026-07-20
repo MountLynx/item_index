@@ -15,6 +15,12 @@
         <input type="checkbox" :checked="!!getValue(field.name)" @change="toggleCheck(field.name)" />
         <span class="check-label">{{ field.label || field.name }}</span>
       </label>
+      <div v-else-if="field.field_type === 'dropdown'" class="field-input-wrap">
+        <select :value="getValue(field.name)" @change="setValue(field.name, ($event.target as HTMLSelectElement).value); save()">
+          <option value="">{{ $t('common.select') }}</option>
+          <option v-for="opt in field.options" :key="opt" :value="opt">{{ opt }}</option>
+        </select>
+      </div>
     </div>
     <div v-if="detail.item_type.fields.length === 0" class="text-muted" style="font-size:var(--font-size-xs)">{{ $t('propertiesForm.noCustomFields') }}</div>
   </div>

@@ -164,13 +164,22 @@
               <span class="type-tag">{{ $t('typeManager.' + f.field_type) }}</span>
               <span v-if="f.label" class="label-hint">{{ f.label }}</span>
             </div>
-            <button
-              class="icon-btn sm danger"
-              :title="$t('typeManager.delete')"
-              @click.stop="deleteTarget = { kind: 'field', id: f.id, name: f.name }"
-            >
-              <TablerIcon name="dots" :size="14" />
-            </button>
+            <div class="field-row-actions">
+              <button
+                class="icon-btn sm"
+                :title="$t('typeManager.edit')"
+                @click.stop="startEditField(f)"
+              >
+                <TablerIcon name="pencil" :size="14" />
+              </button>
+              <button
+                class="icon-btn sm danger"
+                :title="$t('typeManager.delete')"
+                @click.stop="deleteTarget = { kind: 'field', id: f.id, name: f.name }"
+              >
+                <TablerIcon name="dots" :size="14" />
+              </button>
+            </div>
           </template>
 
           <!-- Inline edit state -->
@@ -187,12 +196,19 @@
                 <option value="checkbox">{{ $t('typeManager.checkbox') }}</option>
                 <option value="date">{{ $t('typeManager.date') }}</option>
                 <option value="number">{{ $t('typeManager.number') }}</option>
+                <option value="dropdown">{{ $t('typeManager.dropdown') }}</option>
               </select>
               <input
-                v-if="fieldEditType !== 'text'"
+                v-if="fieldEditType !== 'text' && fieldEditType !== 'dropdown'"
                 v-model="fieldEditLabel"
                 class="label-input"
                 :placeholder="$t('typeManager.displayText')"
+              />
+              <input
+                v-if="fieldEditType === 'dropdown'"
+                v-model="fieldEditOptions"
+                class="label-input"
+                :placeholder="$t('typeManager.optionsHint')"
               />
               <button class="icon-btn sm primary" @click="saveEditField(f.id)">
                 <TablerIcon name="check" :size="14" />
@@ -222,22 +238,29 @@
               @keydown.enter="addField"
               @keydown.escape="showNewField = false"
             />
-            <select v-model="newFieldType" class="type-select">
-              <option value="text">{{ $t('typeManager.text') }}</option>
-              <option value="checkbox">{{ $t('typeManager.checkbox') }}</option>
-              <option value="date">{{ $t('typeManager.date') }}</option>
-              <option value="number">{{ $t('typeManager.number') }}</option>
-            </select>
-            <input
-              v-if="newFieldType !== 'text'"
-              v-model="newFieldLabel"
-              class="label-input"
-              :placeholder="$t('typeManager.displayText')"
-            />
+              <select v-model="newFieldType" class="type-select">
+                <option value="text">{{ $t('typeManager.text') }}</option>
+                <option value="checkbox">{{ $t('typeManager.checkbox') }}</option>
+                <option value="date">{{ $t('typeManager.date') }}</option>
+                <option value="number">{{ $t('typeManager.number') }}</option>
+                <option value="dropdown">{{ $t('typeManager.dropdown') }}</option>
+              </select>
+              <input
+                v-if="newFieldType !== 'text' && newFieldType !== 'dropdown'"
+                v-model="newFieldLabel"
+                class="label-input"
+                :placeholder="$t('typeManager.displayText')"
+              />
+              <input
+                v-if="newFieldType === 'dropdown'"
+                v-model="newFieldOptions"
+                class="label-input"
+                :placeholder="$t('typeManager.optionsHint')"
+              />
             <button class="icon-btn sm primary" @click="addField">
               <TablerIcon name="check" :size="14" />
             </button>
-            <button class="icon-btn sm" @click="showNewField = false; newFieldName = ''; newFieldIcon = ''; newFieldLabel = ''">
+            <button class="icon-btn sm" @click="showNewField = false; newFieldName = ''; newFieldIcon = ''; newFieldLabel = ''; newFieldOptions = ''">
               <TablerIcon name="x" :size="14" />
             </button>
           </div>
@@ -296,15 +319,17 @@ const catIcon = ref('')
 const editingFieldId = ref<number | null>(null)
 const fieldEditName = ref('')
 const fieldEditIcon = ref('')
-const fieldEditType = ref<'text' | 'checkbox' | 'date' | 'number'>('text')
+const fieldEditType = ref<'text' | 'checkbox' | 'date' | 'number' | 'dropdown'>('text')
 const fieldEditLabel = ref('')
+const fieldEditOptions = ref('')
 
 // ── New field ──
 const showNewField = ref(false)
 const newFieldName = ref('')
 const newFieldIcon = ref('')
-const newFieldType = ref<'text' | 'checkbox' | 'date' | 'number'>('text')
+const newFieldType = ref<'text' | 'checkbox' | 'date' | 'number' | 'dropdown'>('text')
 const newFieldLabel = ref('')
+const newFieldOptions = ref('')
 
 // ── Delete popover ──
 const deleteTarget = ref<{ kind: 'type' | 'field'; id: number; name: string } | null>(null)
@@ -419,27 +444,34 @@ function startEditField(f: Field) {
   editingFieldId.value = f.id
   fieldEditName.value = f.name
   fieldEditIcon.value = f.icon
-  fieldEditType.value = f.field_type as 'text' | 'checkbox' | 'date' | 'number'
+  fieldEditType.value = f.field_type as 'text' | 'checkbox' | 'date' | 'number' | 'dropdown'
   fieldEditLabel.value = f.label || ''
+  fieldEditOptions.value = (f.options || []).join(', ')
 }
 
 function cancelEditField() {
   editingFieldId.value = null
+  fieldEditOptions.value = ''
 }
 
 async function saveEditField(fieldId: number) {
   const name = fieldEditName.value.trim()
   if (!name) return
   try {
+    const opts = fieldEditType.value === 'dropdown'
+      ? fieldEditOptions.value.split(',').map(s => s.trim()).filter(s => s)
+      : undefined
     await typeStore.updateField(
       fieldId,
       name,
       fieldEditType.value,
       fieldEditIcon.value || 'circle',
-      fieldEditLabel.value || ''
+      fieldEditLabel.value || '',
+      opts
     )
     toast.success(t('typeManager.fieldUpdated'))
     editingFieldId.value = null
+    fieldEditOptions.value = ''
   } catch (e) {
     toast.error(t('typeManager.updateFailed') + ': ' + e)
   }
@@ -448,17 +480,22 @@ async function saveEditField(fieldId: number) {
 async function addField() {
   if (!currentType.value || !newFieldName.value.trim()) return
   try {
+    const opts = newFieldType.value === 'dropdown'
+      ? newFieldOptions.value.split(',').map(s => s.trim()).filter(s => s)
+      : undefined
     await typeStore.addField(
       currentType.value.id,
       newFieldName.value.trim(),
       newFieldType.value,
       newFieldIcon.value || 'circle',
-      newFieldLabel.value.trim() || undefined
+      newFieldLabel.value.trim() || undefined,
+      opts
     )
     toast.success(t('typeManager.fieldAdded'))
     newFieldName.value = ''
     newFieldIcon.value = ''
     newFieldLabel.value = ''
+    newFieldOptions.value = ''
     showNewField.value = false
   } catch (e) {
     toast.error(t('typeManager.addFieldFailed') + ': ' + e)
@@ -624,6 +661,12 @@ function onDragEnd() {
 }
 .field-row:hover { background: var(--surface-hover); }
 .field-row.editing { background: var(--surface-active); }
+
+.field-row-actions {
+  display: flex; align-items: center; gap: 2px;
+  opacity: 0; transition: opacity var(--fast) var(--ease);
+}
+.field-row:hover .field-row-actions { opacity: 1; }
 
 .field-main {
   display: flex; align-items: center; gap: 6px;

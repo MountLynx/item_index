@@ -36,8 +36,8 @@ export const useTypeStore = defineStore('types', () => {
     return t
   }
 
-  async function addField(typeId: number, name: string, fieldType: string, icon?: string, label?: string): Promise<Field> {
-    const f = await invoke<Field>('add_field', { typeId, name, fieldType, icon: icon ?? null, label: label ?? null })
+  async function addField(typeId: number, name: string, fieldType: string, icon?: string, label?: string, options?: string[]): Promise<Field> {
+    const f = await invoke<Field>('add_field', { typeId, name, fieldType, icon: icon ?? null, label: label ?? null, options: options ?? null })
     const t = types.value.find(t => t.id === typeId)
     if (t) t.fields.push(f)
     return f
@@ -50,8 +50,8 @@ export const useTypeStore = defineStore('types', () => {
     }
   }
 
-  async function updateField(id: number, name: string, fieldType: string, icon: string, label: string): Promise<Field> {
-    const f = await invoke<Field>('update_field', { id, name, fieldType, icon, label })
+  async function updateField(id: number, name: string, fieldType: string, icon: string, label: string, options?: string[]): Promise<Field> {
+    const f = await invoke<Field>('update_field', { id, name, fieldType, icon, label, options: options ?? null })
     for (const t of types.value) {
       const idx = t.fields.findIndex(fi => fi.id === id)
       if (idx !== -1) {

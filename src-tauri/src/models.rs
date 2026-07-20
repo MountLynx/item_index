@@ -18,6 +18,8 @@ pub struct Field {
     pub icon: String,
     pub position: i32,
     pub label: String,
+    #[serde(default)]
+    pub options: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -12,6 +12,10 @@ fn get_pool(state: &State<'_, AppState>) -> Result<SqlitePool, String> {
         .ok_or("No repository open".to_string())
 }
 
+fn parse_options(raw: &str) -> Vec<String> {
+    serde_json::from_str(raw).unwrap_or_default()
+}
+
 #[tauri::command]
 pub async fn list_item_types(state: State<'_, AppState>) -> Result<Vec<ItemType>, String> {
     let pool = get_pool(&state)?;
@@ -24,8 +28,8 @@ pub async fn list_item_types(state: State<'_, AppState>) -> Result<Vec<ItemType>
 
     let mut result = vec![];
     for (id, name, icon, namespace) in type_rows {
-        let field_rows: Vec<(i64, i64, String, String, String, i32, String)> = sqlx::query_as(
-            "SELECT f.id, f.type_id, f.name, f.field_type, f.icon, f.position, f.label FROM fields f WHERE f.type_id = ? ORDER BY f.position",
+        let field_rows: Vec<(i64, i64, String, String, String, i32, String, String)> = sqlx::query_as(
+            "SELECT f.id, f.type_id, f.name, f.field_type, f.icon, f.position, f.label, f.options FROM fields f WHERE f.type_id = ? ORDER BY f.position",
         )
         .bind(id)
         .fetch_all(&pool)
@@ -34,7 +38,7 @@ pub async fn list_item_types(state: State<'_, AppState>) -> Result<Vec<ItemType>
 
         let fields = field_rows
             .into_iter()
-            .map(|(fid, tid, fname, ftype, ficon, pos, label)| Field {
+            .map(|(fid, tid, fname, ftype, ficon, pos, label, opts)| Field {
                 id: fid,
                 type_id: tid,
                 name: fname,
@@ -42,6 +46,7 @@ pub async fn list_item_types(state: State<'_, AppState>) -> Result<Vec<ItemType>
                 icon: ficon,
                 position: pos,
                 label,
+                options: parse_options(&opts),
             })
             .collect();
 
@@ -107,10 +112,13 @@ pub async fn add_field(
     field_type: String,
     icon: Option<String>,
     label: Option<String>,
+    options: Option<Vec<String>>,
 ) -> Result<Field, String> {
     let pool = get_pool(&state)?;
     let icon = icon.unwrap_or_else(|| "circle".to_string());
     let label = label.unwrap_or_default();
+    let opts = serde_json::to_string(&options.clone().unwrap_or_default()).map_err(|e| e.to_string())?;
+    let options_list = options.unwrap_or_default();
 
     let max_pos: Option<i32> =
         sqlx::query_scalar("SELECT MAX(position) FROM fields WHERE type_id = ?")
@@ -121,7 +129,7 @@ pub async fn add_field(
     let position = max_pos.unwrap_or(-1) + 1;
 
     let id: i64 = sqlx::query_scalar(
-        "INSERT INTO fields (type_id, name, field_type, icon, position, label) VALUES (?, ?, ?, ?, ?, ?) RETURNING id",
+        "INSERT INTO fields (type_id, name, field_type, icon, position, label, options) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id",
     )
     .bind(type_id)
     .bind(&name)
@@ -129,6 +137,7 @@ pub async fn add_field(
     .bind(&icon)
     .bind(position)
     .bind(&label)
+    .bind(&opts)
     .fetch_one(&pool)
     .await
     .map_err(|e| e.to_string())?;
@@ -141,6 +150,7 @@ pub async fn add_field(
         icon,
         position,
         label,
+        options: options_list,
     })
 }
 
@@ -200,8 +210,8 @@ pub async fn update_item_type(
     .await
     .map_err(|e| e.to_string())?;
 
-    let field_rows: Vec<(i64, i64, String, String, String, i32, String)> = sqlx::query_as(
-        "SELECT f.id, f.type_id, f.name, f.field_type, f.icon, f.position, f.label FROM fields f WHERE f.type_id = ? ORDER BY f.position",
+    let field_rows: Vec<(i64, i64, String, String, String, i32, String, String)> = sqlx::query_as(
+        "SELECT f.id, f.type_id, f.name, f.field_type, f.icon, f.position, f.label, f.options FROM fields f WHERE f.type_id = ? ORDER BY f.position",
     )
     .bind(id)
     .fetch_all(&pool)
@@ -210,7 +220,7 @@ pub async fn update_item_type(
 
     let fields = field_rows
         .into_iter()
-        .map(|(fid, tid, fname, ftype, ficon, pos, label)| Field {
+        .map(|(fid, tid, fname, ftype, ficon, pos, label, opts)| Field {
             id: fid,
             type_id: tid,
             name: fname,
@@ -218,6 +228,7 @@ pub async fn update_item_type(
             icon: ficon,
             position: pos,
             label,
+            options: parse_options(&opts),
         })
         .collect();
 
@@ -232,35 +243,103 @@ pub async fn update_field(
     field_type: String,
     icon: String,
     label: String,
+    options: Option<Vec<String>>,
 ) -> Result<Field, String> {
     let pool = get_pool(&state)?;
+    let opts = serde_json::to_string(&options.clone().unwrap_or_default()).map_err(|e| e.to_string())?;
+    let options_list = options.unwrap_or_default();
 
-    sqlx::query("UPDATE fields SET name = ?, field_type = ?, icon = ?, label = ? WHERE id = ?")
+    // Get old field info before update (for cleanup)
+    let old: (i64, String) = sqlx::query_as(
+        "SELECT type_id, field_type FROM fields WHERE id = ?"
+    ).bind(id).fetch_one(&pool).await.map_err(|e| e.to_string())?;
+
+    sqlx::query("UPDATE fields SET name = ?, field_type = ?, icon = ?, label = ?, options = ? WHERE id = ?")
         .bind(&name)
         .bind(&field_type)
         .bind(&icon)
         .bind(&label)
+        .bind(&opts)
         .bind(id)
         .execute(&pool)
         .await
         .map_err(|e| e.to_string())?;
 
+    // ── Cleanup: clear field values in all items of this type ──
+    let opts_list: Vec<String> = options_list.clone();
+    let needs_cleanup = old.1 != field_type || !opts_list.is_empty();
+
+    if needs_cleanup {
+        let items: Vec<(String, String)> = sqlx::query_as(
+            "SELECT id, properties FROM items WHERE type_id = ?"
+        ).bind(old.0).fetch_all(&pool).await.map_err(|e| e.to_string())?;
+
+        for (item_id, props_str) in items {
+            let mut props: serde_json::Value = serde_json::from_str(&props_str).unwrap_or_default();
+            let field_name = &name;
+
+            if field_type == "dropdown" {
+                // Keep value only if it's in the options list
+                let keep = props.get(field_name)
+                    .and_then(|v| v.as_str())
+                    .map(|s| opts_list.contains(&s.to_string()))
+                    .unwrap_or(false);
+                if !keep {
+                    if let serde_json::Value::Object(ref mut map) = props {
+                        map.remove(field_name);
+                    }
+                }
+            } else if field_type == "checkbox" {
+                // Convert to boolean or clear
+                if let serde_json::Value::Object(ref mut map) = props {
+                    if let Some(v) = map.get(field_name) {
+                        if let Some(s) = v.as_str() {
+                            map.insert(field_name.to_string(), serde_json::Value::Bool(s == "true" || s == "1"));
+                        } else if !v.is_boolean() {
+                            map.remove(field_name);
+                        }
+                    }
+                }
+            } else {
+                // For type change to text/number/date: clear old value
+                if old.1 != field_type {
+                    if let serde_json::Value::Object(ref mut map) = props {
+                        map.remove(field_name);
+                    }
+                }
+            }
+
+            let new_props = serde_json::to_string(&props).map_err(|e| e.to_string())?;
+            if new_props != props_str {
+                sqlx::query("UPDATE items SET properties = ? WHERE id = ?")
+                    .bind(&new_props)
+                    .bind(&item_id)
+                    .execute(&pool)
+                    .await
+                    .map_err(|e| e.to_string())?;
+            }
+        }
+    }
+
     // Return updated field
-    let row: (i64, i64, String, String, String, i32, String) = sqlx::query_as(
-        "SELECT id, type_id, name, field_type, icon, position, label FROM fields WHERE id = ?",
+    let (_, type_id, _, _, _, pos, _, opts_str): (i64, i64, String, String, String, i32, String, String) = sqlx::query_as(
+        "SELECT id, type_id, name, field_type, icon, position, label, options FROM fields WHERE id = ?",
     )
     .bind(id)
     .fetch_one(&pool)
     .await
     .map_err(|e| e.to_string())?;
 
+    let opts_parsed = parse_options(&opts_str);
+
     Ok(Field {
-        id: row.0,
-        type_id: row.1,
-        name: row.2,
-        field_type: row.3,
-        icon: row.4,
-        position: row.5,
-        label: row.6,
+        id,
+        type_id,
+        name,
+        field_type,
+        icon,
+        position: pos,
+        label,
+        options: opts_parsed,
     })
 }
