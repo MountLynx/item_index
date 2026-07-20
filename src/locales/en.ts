@@ -21,6 +21,7 @@ export default {
   },
   sidebar: {
     groups: 'Groups', tags: 'Tags', showAll: '← Show All',
+    search: 'Search items...', searchResults: 'Search Results', noResults: 'No items found',
   },
   rightPanel: {
     selectItem: 'Select an item to view details',

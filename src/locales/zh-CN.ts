@@ -21,6 +21,7 @@ export default {
   },
   sidebar: {
     groups: '分组', tags: '标签', showAll: '← 显示全部',
+    search: '搜索条目...', searchResults: '搜索结果', noResults: '无匹配条目',
   },
   rightPanel: {
     selectItem: '选择条目查看详情',
