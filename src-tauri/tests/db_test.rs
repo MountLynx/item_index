@@ -23,12 +23,12 @@ async fn test_migration_preset_data() {
         .expect("query failed");
     assert_eq!(type_count.0, 2, "expected 2 preset item types");
 
-    // Assert there are exactly 3 fields
+    // Assert there are exactly 4 fields
     let field_count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM fields")
         .fetch_one(&pool)
         .await
         .expect("query failed");
-    assert_eq!(field_count.0, 3, "expected 3 preset fields");
+    assert_eq!(field_count.0, 4, "expected 4 preset fields");
 
     // Verify the names and icons of the item types
     let types: Vec<(i64, String, String)> =
@@ -38,9 +38,9 @@ async fn test_migration_preset_data() {
             .expect("query failed");
     assert_eq!(types.len(), 2);
     assert_eq!(types[0].1, "通用");
-    assert_eq!(types[0].2, "📄");
+    assert_eq!(types[0].2, "file");
     assert_eq!(types[1].1, "任务");
-    assert_eq!(types[1].2, "✅");
+    assert_eq!(types[1].2, "checkbox");
 
     // Verify the fields
     let fields: Vec<(i64, i64, String, String, i32)> =
@@ -48,7 +48,7 @@ async fn test_migration_preset_data() {
             .fetch_all(&pool)
             .await
             .expect("query failed");
-    assert_eq!(fields.len(), 3);
+    assert_eq!(fields.len(), 4);
     // 通用.备注 text
     assert_eq!(fields[0].1, 1);
     assert_eq!(fields[0].2, "备注");
@@ -61,4 +61,8 @@ async fn test_migration_preset_data() {
     assert_eq!(fields[2].1, 2);
     assert_eq!(fields[2].2, "完成");
     assert_eq!(fields[2].3, "checkbox");
+    // 任务.截止日 date
+    assert_eq!(fields[3].1, 2);
+    assert_eq!(fields[3].2, "截止日");
+    assert_eq!(fields[3].3, "date");
 }
