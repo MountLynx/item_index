@@ -204,12 +204,17 @@
                 class="label-input"
                 :placeholder="$t('typeManager.displayText')"
               />
-              <input
-                v-if="fieldEditType === 'dropdown'"
-                v-model="fieldEditOptions"
-                class="label-input"
-                :placeholder="$t('typeManager.optionsHint')"
-              />
+              <div v-if="fieldEditType === 'dropdown'" class="options-editor">
+                <div v-for="(_o, idx) in fieldEditOptionsList" :key="idx" class="option-row">
+                  <input v-model="fieldEditOptionsList[idx]" class="option-input" :placeholder="$t('typeManager.optionPlaceholder')" />
+                  <button class="icon-btn sm" @click="fieldEditOptionsList.splice(idx, 1)">
+                    <TablerIcon name="x" :size="12" />
+                  </button>
+                </div>
+                <button class="add-option-btn" @click="fieldEditOptionsList.push('')">
+                  <TablerIcon name="plus" :size="12" /> {{ $t('typeManager.addOption') }}
+                </button>
+              </div>
               <button class="icon-btn sm primary" @click="saveEditField(f.id)">
                 <TablerIcon name="check" :size="14" />
               </button>
@@ -251,16 +256,21 @@
                 class="label-input"
                 :placeholder="$t('typeManager.displayText')"
               />
-              <input
-                v-if="newFieldType === 'dropdown'"
-                v-model="newFieldOptions"
-                class="label-input"
-                :placeholder="$t('typeManager.optionsHint')"
-              />
+              <div v-if="newFieldType === 'dropdown'" class="options-editor">
+                <div v-for="(_o, idx) in newFieldOptionsList" :key="idx" class="option-row">
+                  <input v-model="newFieldOptionsList[idx]" class="option-input" :placeholder="$t('typeManager.optionPlaceholder')" />
+                  <button class="icon-btn sm" @click="newFieldOptionsList.splice(idx, 1)">
+                    <TablerIcon name="x" :size="12" />
+                  </button>
+                </div>
+                <button class="add-option-btn" @click="newFieldOptionsList.push('')">
+                  <TablerIcon name="plus" :size="12" /> {{ $t('typeManager.addOption') }}
+                </button>
+              </div>
             <button class="icon-btn sm primary" @click="addField">
               <TablerIcon name="check" :size="14" />
             </button>
-            <button class="icon-btn sm" @click="showNewField = false; newFieldName = ''; newFieldIcon = ''; newFieldLabel = ''; newFieldOptions = ''">
+            <button class="icon-btn sm" @click="showNewField = false; newFieldName = ''; newFieldIcon = ''; newFieldLabel = ''; newFieldOptionsList = []">
               <TablerIcon name="x" :size="14" />
             </button>
           </div>
@@ -321,7 +331,7 @@ const fieldEditName = ref('')
 const fieldEditIcon = ref('')
 const fieldEditType = ref<'text' | 'checkbox' | 'date' | 'number' | 'dropdown'>('text')
 const fieldEditLabel = ref('')
-const fieldEditOptions = ref('')
+const fieldEditOptionsList = ref<string[]>([])
 
 // ── New field ──
 const showNewField = ref(false)
@@ -329,7 +339,7 @@ const newFieldName = ref('')
 const newFieldIcon = ref('')
 const newFieldType = ref<'text' | 'checkbox' | 'date' | 'number' | 'dropdown'>('text')
 const newFieldLabel = ref('')
-const newFieldOptions = ref('')
+const newFieldOptionsList = ref<string[]>([])
 
 // ── Delete popover ──
 const deleteTarget = ref<{ kind: 'type' | 'field'; id: number; name: string } | null>(null)
@@ -446,12 +456,12 @@ function startEditField(f: Field) {
   fieldEditIcon.value = f.icon
   fieldEditType.value = f.field_type as 'text' | 'checkbox' | 'date' | 'number' | 'dropdown'
   fieldEditLabel.value = f.label || ''
-  fieldEditOptions.value = (f.options || []).join(', ')
+  fieldEditOptionsList.value = [...(f.options || [])]
 }
 
 function cancelEditField() {
   editingFieldId.value = null
-  fieldEditOptions.value = ''
+  fieldEditOptionsList.value = []
 }
 
 async function saveEditField(fieldId: number) {
@@ -459,7 +469,7 @@ async function saveEditField(fieldId: number) {
   if (!name) return
   try {
     const opts = fieldEditType.value === 'dropdown'
-      ? fieldEditOptions.value.split(',').map(s => s.trim()).filter(s => s)
+      ? fieldEditOptionsList.value.filter(s => s.trim())
       : undefined
     await typeStore.updateField(
       fieldId,
@@ -471,7 +481,7 @@ async function saveEditField(fieldId: number) {
     )
     toast.success(t('typeManager.fieldUpdated'))
     editingFieldId.value = null
-    fieldEditOptions.value = ''
+    fieldEditOptionsList.value = []
   } catch (e) {
     toast.error(t('typeManager.updateFailed') + ': ' + e)
   }
@@ -481,7 +491,7 @@ async function addField() {
   if (!currentType.value || !newFieldName.value.trim()) return
   try {
     const opts = newFieldType.value === 'dropdown'
-      ? newFieldOptions.value.split(',').map(s => s.trim()).filter(s => s)
+      ? newFieldOptionsList.value.filter(s => s.trim())
       : undefined
     await typeStore.addField(
       currentType.value.id,
@@ -495,7 +505,7 @@ async function addField() {
     newFieldName.value = ''
     newFieldIcon.value = ''
     newFieldLabel.value = ''
-    newFieldOptions.value = ''
+    newFieldOptionsList.value = []
     showNewField.value = false
   } catch (e) {
     toast.error(t('typeManager.addFieldFailed') + ': ' + e)
@@ -696,6 +706,25 @@ function onDragEnd() {
 .icon-input-sm { width: 60px; font-size: var(--fs-sm); }
 .type-select { font-size: var(--fs-sm); width: 80px; }
 .label-input { width: 140px; font-size: var(--fs-sm); }
+
+.options-editor {
+  display: flex; flex-direction: column; gap: 4px;
+  width: 100%; margin-top: 4px;
+}
+.option-row {
+  display: flex; align-items: center; gap: 4px;
+}
+.option-input {
+  flex: 1; font-size: var(--fs-sm); min-width: 0;
+}
+.add-option-btn {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 11px; color: var(--text-muted);
+  background: transparent; border: 1px dashed var(--border);
+  border-radius: var(--r-sm); padding: 3px 8px; cursor: pointer;
+  align-self: flex-start;
+}
+.add-option-btn:hover { color: var(--accent); border-color: var(--accent); }
 
 .empty-hint {
   font-size: var(--fs-sm); color: var(--text-muted);

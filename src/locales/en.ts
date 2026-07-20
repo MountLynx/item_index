@@ -42,6 +42,8 @@ export default {
     text: 'Text', checkbox: 'Checkbox', date: 'Date', number: 'Number', dropdown: 'Dropdown',
     displayText: 'Display text (optional)',
     optionsHint: 'Options (comma separated)',
+    optionPlaceholder: 'Option name',
+    addOption: 'Add option',
     noFields: 'No fields yet. Add one below.',
     edit: 'Edit', delete: 'Delete',
     type: 'Type', field: 'Field',

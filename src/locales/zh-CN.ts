@@ -42,6 +42,8 @@ export default {
     text: '文本', checkbox: '复选框', date: '日期', number: '数字', dropdown: '下拉选单',
     displayText: '显示文字（可选）',
     optionsHint: '选项（逗号分隔）',
+    optionPlaceholder: '选项名',
+    addOption: '添加选项',
     noFields: '暂无字段，点击下方添加',
     edit: '编辑', delete: '删除',
     type: '类别', field: '字段',
