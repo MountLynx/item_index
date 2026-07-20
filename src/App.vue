@@ -20,6 +20,7 @@
 
 <script setup lang="ts">
 import { provide, ref, onMounted, watch } from 'vue'
+import { invoke } from '@tauri-apps/api/core'
 import { useRepoStore } from '@/stores/repo'
 import { useThemeStore } from '@/stores/theme'
 import { useSettingsStore } from '@/stores/settings'
@@ -71,10 +72,20 @@ watch(() => repoStore.isOpen, async (isOpen) => {
   settingsStore.applyTheme()
 })
 
-onMounted(() => {
+onMounted(async () => {
   settingsStore.load()
   themeStore.init()
   settingsStore.applyTheme()
+
+  // Check if this is a sub-repo window (created by open_sub_repo_window)
+  try {
+    const subRepoPath = await invoke<string | null>('get_sub_repo_path')
+    if (subRepoPath) {
+      await repoStore.openRepo(subRepoPath)
+    }
+  } catch {
+    // Not a sub-repo window, or command not available — normal startup
+  }
 })
 </script>
 
