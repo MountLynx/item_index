@@ -17,6 +17,8 @@ export interface PluginContext {
   config: Record<string, unknown>
   filteredOut: ComputedRef<{ count: number; reason: string }>
   query: (params: QueryParams) => Promise<QueryResult>
+  readCache: () => Promise<Record<string, unknown>>
+  writeCache: (data: Record<string, unknown>) => Promise<void>
 }
 
 export function buildPluginContext(
@@ -78,6 +80,12 @@ export function buildPluginContext(
     filteredOut,
     query: async (params: QueryParams) => {
       return await invoke<QueryResult>('query_items', params as unknown as Record<string, unknown>)
+    },
+    readCache: async () => {
+      return await invoke<Record<string, unknown>>('read_plugin_cache', { pluginName: manifest.name })
+    },
+    writeCache: async (data: Record<string, unknown>) => {
+      await invoke('write_plugin_cache', { pluginName: manifest.name, data })
     },
   }
 }
