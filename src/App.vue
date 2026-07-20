@@ -81,7 +81,7 @@ onMounted(async () => {
   try {
     const subRepoPath = await invoke<string | null>('get_sub_repo_path')
     if (subRepoPath) {
-      await repoStore.openRepo(subRepoPath)
+      await repoStore.openRepo(subRepoPath, true)
     }
   } catch {
     // Not a sub-repo window, or command not available — normal startup

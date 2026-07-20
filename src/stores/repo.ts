@@ -18,12 +18,14 @@ export const useRepoStore = defineStore('repo', () => {
     return info
   }
 
-  async function openRepo(path: string): Promise<RepoInfo> {
+  async function openRepo(path: string, skipDashboard = false): Promise<RepoInfo> {
     const info = await invoke<RepoInfo>('open_repo', { path })
     repoPath.value = info.path
     itemCount.value = info.item_count
-    // Auto-record in dashboard with current item count
-    try { await useDashboardStore().addRepo(info.path, undefined, info.item_count) } catch { /* ignore */ }
+    // Auto-record in dashboard with current item count, unless this is a sub-repo
+    if (!skipDashboard) {
+      try { await useDashboardStore().addRepo(info.path, undefined, info.item_count) } catch { /* ignore */ }
+    }
     return info
   }
 
