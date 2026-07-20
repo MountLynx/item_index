@@ -251,6 +251,10 @@ exports.default = function (Vue) {
           if (typeof filterObj === 'string') {
             try { filterObj = JSON.parse(filterObj) } catch (e) { filterObj = null }
           }
+          // Normalize: treat empty objects/strings the same as null
+          if (filterObj && typeof filterObj === 'object' && Object.keys(filterObj).length === 0) {
+            filterObj = null
+          }
           var extractField = cfg.extract || ''
 
           // Pure-reference config (no filter, no extract): uses variables only
@@ -329,7 +333,7 @@ exports.default = function (Vue) {
         if (!cfg) return
         editingId.value = id
         editTitle.value = cfg.title || ''
-        editFilter.value = typeof cfg.filter === 'string' ? cfg.filter : JSON.stringify(cfg.filter || {}, null, 2)
+        editFilter.value = cfg.filter ? (typeof cfg.filter === 'string' ? cfg.filter : JSON.stringify(cfg.filter, null, 2)) : ''
         editExtract.value = cfg.extract || ''
         editExpression.value = cfg.expression || ''
         editVarName.value = cfg.varName || ''
@@ -346,6 +350,10 @@ exports.default = function (Vue) {
         if (editFilter.value.trim()) {
           try {
             filterObj = JSON.parse(editFilter.value)
+            // Normalize: empty object treated as no filter
+            if (filterObj && typeof filterObj === 'object' && Object.keys(filterObj).length === 0) {
+              filterObj = null
+            }
           } catch (e) {
             editError.value = '筛选条件JSON格式错误: ' + e.message; return
           }
