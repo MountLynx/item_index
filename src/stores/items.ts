@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
-import type { Item, ItemDetail } from '@/types/bindings'
+import type { Item, ItemDetail, QueryParams, QueryResult } from '@/types/bindings'
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -84,5 +84,9 @@ export const useItemStore = defineStore('items', () => {
     }, 500)
   }
 
-  return { items, selectedId, detail, loadingDetail, fetchList, select, clearSelection, create, update, remove, saveProperties }
+  async function query(params: QueryParams): Promise<QueryResult> {
+    return invoke<QueryResult>('query_items', { ...params })
+  }
+
+  return { items, selectedId, detail, loadingDetail, fetchList, select, clearSelection, create, update, remove, saveProperties, query }
 })
