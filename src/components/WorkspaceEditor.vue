@@ -135,6 +135,9 @@ async function load() {
   local.defaultTab = cfg.defaultTab || 'list'
   local.rightPanelAddons.splice(0, local.rightPanelAddons.length, ...(cfg.rightPanelAddons || []))
   local.sidebarAddons.splice(0, local.sidebarAddons.length, ...(cfg.sidebarAddons || []))
+  // Sync checkbox selections from loaded config
+  rightPanelSelected.value = (cfg.rightPanelAddons || []).map(a => a.plugin)
+  sidebarSelected.value = (cfg.sidebarAddons || []).map(a => a.plugin)
   const plugins = await invoke<PluginManifest[]>('list_installed_plugins')
   centerPanelPlugins.value = plugins.filter(p => p.extends === 'center-panel')
   sidebarPlugins.value = plugins.filter(p => p.extends === 'sidebar')
@@ -156,6 +159,9 @@ function removeTab(i: number) {
 }
 
 async function save() {
+  // Sync checkbox selections back to addon arrays
+  local.rightPanelAddons = rightPanelSelected.value.map(p => ({ plugin: p }))
+  local.sidebarAddons = sidebarSelected.value.map(p => ({ plugin: p }))
   await wsStore.save({ ...local }, props.workspaceName)
   await wsStore.activate(local.name)
   emit('back')

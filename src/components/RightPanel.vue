@@ -118,11 +118,16 @@ defineEmits<{
   'update:activeTab': [tab: string]
 }>()
 
-const tabs = computed(() => [
-  { id: 'detail', icon: 'file-description', title: t('rightPanel.detail') },
-  { id: 'types', icon: 'category', title: t('common.category') },
-  { id: 'plugins', icon: 'plug-connected', title: '插件' },
-])
+const tabs = computed(() => {
+  const list = [
+    { id: 'detail', icon: 'file-description', title: t('rightPanel.detail') },
+    { id: 'types', icon: 'category', title: t('common.category') },
+  ]
+  if (wsStore.active?.rightPanelAddons?.length) {
+    list.push({ id: 'plugins', icon: 'plug-connected', title: '插件' })
+  }
+  return list
+})
 
 const itemStore = useItemStore()
 const groupStore = useGroupStore()
