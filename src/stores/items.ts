@@ -10,6 +10,7 @@ export const useItemStore = defineStore('items', () => {
   const selectedId = ref<string | null>(null)
   const detail = ref<ItemDetail | null>(null)
   const loadingDetail = ref(false)
+  const subRepoMap = ref<Record<string, string>>({})
 
   async function fetchList(groupId?: number | null, tagId?: number | null, typeIds?: number[]): Promise<void> {
     // Auto-resolve typeIds from active workspace when not explicitly provided
@@ -35,6 +36,7 @@ export const useItemStore = defineStore('items', () => {
       tagId: tagId ?? null,
       typeIds: resolvedTypeIds ?? null,
     })
+    await fetchSubRepos()
   }
 
   async function select(id: string): Promise<void> {
@@ -88,5 +90,26 @@ export const useItemStore = defineStore('items', () => {
     return invoke<QueryResult>('query_items', { ...params })
   }
 
-  return { items, selectedId, detail, loadingDetail, fetchList, select, clearSelection, create, update, remove, saveProperties, query }
+  async function openItemFolder(id: string): Promise<void> {
+    await invoke('open_item_folder', { itemId: id })
+  }
+
+  async function createSubRepo(id: string): Promise<void> {
+    await invoke('create_sub_repo', { itemId: id })
+    await fetchSubRepos()
+  }
+
+  async function openSubRepoWindow(id: string): Promise<void> {
+    await invoke('open_sub_repo_window', { itemId: id })
+  }
+
+  async function fetchSubRepos(): Promise<void> {
+    try {
+      subRepoMap.value = await invoke<Record<string, string>>('list_sub_repos')
+    } catch {
+      subRepoMap.value = {}
+    }
+  }
+
+  return { items, selectedId, detail, loadingDetail, subRepoMap, fetchList, select, clearSelection, create, update, remove, saveProperties, query, openItemFolder, createSubRepo, openSubRepoWindow, fetchSubRepos }
 })

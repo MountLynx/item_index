@@ -157,3 +157,7 @@ export interface QueryResult {
   total: number
   extracted?: Record<string, Record<string, unknown>>
 }
+
+export interface SubRepoMap {
+  [itemId: string]: string
+}
