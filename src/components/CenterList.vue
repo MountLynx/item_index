@@ -7,11 +7,13 @@
     </div>
     <div v-else class="list">
       <div v-for="item in items" :key="item.id" class="row" :class="{ sel: item.id === selectedId }"
-        @click="selectItem(item.id)" @contextmenu.prevent="showMenu($event, item)">
+        @click="selectItem(item.id)" @dblclick="handleDoubleClick(item)" @contextmenu.prevent="showMenu($event, item)">
         <span class="grip" draggable="true" @dragstart="onDragStart($event, item.id)" @click.stop :title="$t('centerList.dragToGroup')">
           <TablerIcon name="grip-vertical" :size="14" />
         </span>
         <TablerIcon :name="typeIcon(item.type_id)" :size="19" />
+        <TablerIcon v-if="itemStore.subRepoMap[item.id]" name="database" :size="12" class="repo-badge"
+          :title="$t('centerList.subRepo')" />
         <div class="body">
           <span class="name">{{ item.name }}</span>
           <span class="meta">{{ typeName(item.type_id) }} &middot; {{ ago(item.updated_at) }}</span>
@@ -21,6 +23,9 @@
     <Teleport to="body">
       <div v-if="menu.show" class="menu-overlay" @click="menu.show = false" @contextmenu.prevent="menu.show = false">
         <div class="menu" :style="{ left: menu.x + 'px', top: menu.y + 'px' }">
+          <button v-if="menu.item && !itemStore.subRepoMap[menu.item.id]" class="menu-item" @click="createSubRepoAction">
+            <TablerIcon name="database" :size="15" /> {{ $t('centerList.createSubRepo') }}
+          </button>
           <button class="menu-item" @click="deleteItem"><TablerIcon name="trash" :size="15" /> {{ $t('centerList.deleteItem') }}</button>
         </div>
       </div>
@@ -61,6 +66,23 @@ function onDragStart(e: DragEvent, id: string) {
 }
 
 async function selectItem(id: string) { await itemStore.select(id); menu.show = false }
+
+async function handleDoubleClick(item: Item) {
+  const isSubRepo = itemStore.subRepoMap[item.id]
+  if (isSubRepo) {
+    await itemStore.openSubRepoWindow(item.id)
+  } else {
+    await itemStore.openItemFolder(item.id)
+  }
+}
+
+async function createSubRepoAction() {
+  if (menu.item) {
+    await itemStore.createSubRepo(menu.item.id)
+  }
+  menu.show = false
+}
+
 function showMenu(e: MouseEvent, item: Item) { menu.show = true; menu.x = e.clientX; menu.y = e.clientY; menu.item = item }
 async function deleteItem() { if (menu.item && confirm(t('centerList.confirmDelete', { name: menu.item.name }))) await itemStore.remove(menu.item.id); menu.show = false }
 </script>
@@ -98,4 +120,5 @@ async function deleteItem() { if (menu.item && confirm(t('centerList.confirmDele
   border: none; background: none; cursor: pointer; height: auto; color: var(--danger);
 }
 .menu-item:hover { background: var(--danger-subtle); }
+.repo-badge { color: var(--accent); flex-shrink: 0; margin-left: -4px; }
 </style>

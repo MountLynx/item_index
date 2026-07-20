@@ -18,6 +18,7 @@ export default {
     dayAgo: ' 天前', monthAgo: ' 月前', yesterday: '昨天',
     confirmDelete: '确定删除"{name}"？',
     dragToGroup: '拖拽到分组',
+    subRepo: '子仓库', createSubRepo: '创建子仓库',
   },
   sidebar: {
     groups: '分组', tags: '标签', showAll: '← 显示全部',
