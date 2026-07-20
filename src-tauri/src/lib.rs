@@ -138,6 +138,7 @@ pub fn run() {
             commands::plugin::uninstall_plugin_from_repo,
             commands::marketplace::fetch_marketplace_index,
             commands::marketplace::download_marketplace_plugin,
+            commands::query::query_items,
         ])
         .setup(|app| {
             // Deploy bundled plugins and presets to app-data on first run
