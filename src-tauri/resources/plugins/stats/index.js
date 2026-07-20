@@ -72,6 +72,7 @@ exports.default = function (Vue) {
       var editingId = ref(null)          // 'new' or config id
       var expandedIds = ref(new Set())   // expanded card ids
       var loading = ref(false)
+      var cache = ref(null)              // { varName: number } loaded from .index
 
       // ── Edit form state ──
       var editTitle = ref('')
