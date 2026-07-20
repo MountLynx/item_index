@@ -127,3 +127,44 @@ pub async fn uninstall_plugin_from_repo(
     refs::remove_repo_ref(&app, &state, &plugin_name, &repo_path)?;
     Ok(())
 }
+
+/// Read per-plugin cache from .index/plugin-cache/{plugin_name}.json
+#[tauri::command]
+pub async fn read_plugin_cache(
+    window: tauri::Window,
+    state: State<'_, AppState>,
+    plugin_name: String,
+) -> Result<serde_json::Value, String> {
+    let repo_path = get_repo_path(&window, &state)?;
+    let cache_dir = Path::new(&repo_path).join(".index").join("plugin-cache");
+    let cache_path = cache_dir.join(format!("{}.json", plugin_name));
+
+    if !cache_path.exists() {
+        return Ok(serde_json::json!({}));
+    }
+
+    let raw = std::fs::read_to_string(&cache_path)
+        .map_err(|e| format!("Read error: {}", e))?;
+    serde_json::from_str(&raw)
+        .map_err(|e| format!("Parse error: {}", e))
+}
+
+/// Write per-plugin cache to .index/plugin-cache/{plugin_name}.json
+#[tauri::command]
+pub async fn write_plugin_cache(
+    window: tauri::Window,
+    state: State<'_, AppState>,
+    plugin_name: String,
+    data: serde_json::Value,
+) -> Result<(), String> {
+    let repo_path = get_repo_path(&window, &state)?;
+    let cache_dir = Path::new(&repo_path).join(".index").join("plugin-cache");
+    std::fs::create_dir_all(&cache_dir)
+        .map_err(|e| format!("Cannot create cache dir: {}", e))?;
+
+    let cache_path = cache_dir.join(format!("{}.json", plugin_name));
+    let content = serde_json::to_string_pretty(&data)
+        .map_err(|e| format!("Serialize error: {}", e))?;
+    std::fs::write(&cache_path, content)
+        .map_err(|e| format!("Write error: {}", e))
+}
