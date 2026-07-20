@@ -123,8 +123,14 @@ const tabs = computed(() => {
     { id: 'detail', icon: 'file-description', title: t('rightPanel.detail') },
     { id: 'types', icon: 'category', title: t('common.category') },
   ]
-  if (wsStore.active?.rightPanelAddons?.length) {
-    list.push({ id: 'plugins', icon: 'plug-connected', title: '插件' })
+  const addons = wsStore.active?.rightPanelAddons
+  if (addons?.length) {
+    // Use first addon's icon, fallback to plug-connected
+    const icon = addonIcons.value.get(addons[0].plugin) || addons[0].plugin || 'plug-connected'
+    const title = addons.length === 1
+      ? (addonTitles.value.get(addons[0].plugin) || addons[0].plugin)
+      : '插件'
+    list.push({ id: 'plugins', icon, title })
   }
   return list
 })
@@ -144,6 +150,8 @@ interface AddonState {
   error: string | null
 }
 const addonPlugins = ref<AddonState[]>([])
+const addonIcons = ref<Map<string, string>>(new Map())
+const addonTitles = ref<Map<string, string>>(new Map())
 
 async function loadAddonPlugins() {
   const addons = wsStore.active?.rightPanelAddons || []
@@ -163,6 +171,8 @@ async function loadAddonPlugins() {
       state.context = buildPluginContext(result.manifest, 
         addons.find(a => a.plugin === state.plugin)?.config || {})
       state.loading = false
+      addonIcons.value.set(state.plugin, result.manifest.icon || 'plug-connected')
+      addonTitles.value.set(state.plugin, result.manifest.title || state.plugin)
     } catch (e: any) {
       state.error = e.message || '加载失败'
       state.loading = false
