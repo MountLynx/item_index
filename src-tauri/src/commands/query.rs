@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::sync::LazyLock;
 use sqlx::sqlite::SqlitePool;
 use sqlx::QueryBuilder;
 use tauri::State;
@@ -26,10 +27,12 @@ impl FieldSet {
 }
 
 /// Validate a field name — only ASCII alphanumeric, underscore, and CJK characters.
+static FIELD_RE: LazyLock<regex::Regex> = LazyLock::new(|| {
+    regex::Regex::new(r"^[a-zA-Z_\u{4e00}-\u{9fff}][a-zA-Z0-9_\u{4e00}-\u{9fff}]*$").unwrap()
+});
+
 fn validate_field(field: &str) -> Result<(), String> {
-    let re =
-        regex::Regex::new(r"^[a-zA-Z_\u{4e00}-\u{9fff}][a-zA-Z0-9_\u{4e00}-\u{9fff}]*$").unwrap();
-    if re.is_match(field) {
+    if FIELD_RE.is_match(field) {
         Ok(())
     } else {
         Err(format!("Invalid field name: {}", field))
@@ -360,7 +363,8 @@ pub async fn execute_query(
 
     // LIMIT
     if let Some(lim) = limit {
-        qb.push(format!(" LIMIT {}", lim));
+        qb.push(" LIMIT ");
+        qb.push_bind(lim);
     }
 
     // Execute via QueryBuilder
