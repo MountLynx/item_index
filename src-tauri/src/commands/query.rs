@@ -180,29 +180,65 @@ fn translate_node(
                 .ok_or("Logic node must have 'and' or 'or'")?;
             let connector = if and.is_some() { " AND " } else { " OR " };
 
-            let mut non_empty = 0;
+            let mut first = true;
             qb.push("(");
             for child in kids.iter() {
-                let mut child_regexes: Vec<(String, regex::Regex)> = Vec::new();
-                let start_len = qb.sql().len();
+                // If this child is purely regex conditions, skip SQL generation
+                // and just collect the regex patterns for post-filtering.
+                if is_pure_regex(child) {
+                    collect_regex_from_node(child, regexes);
+                    continue;
+                }
 
-                // Push connector BEFORE translating child (except for first child)
-                if non_empty > 0 {
+                if !first {
                     qb.push(connector);
                 }
+                first = false;
 
+                let mut child_regexes: Vec<(String, regex::Regex)> = Vec::new();
                 translate_node(child, fs, qb, &mut child_regexes)?;
-
-                if qb.sql().len() > start_len || !child_regexes.is_empty() {
-                    non_empty += 1;
-                }
                 regexes.extend(child_regexes);
             }
-            if non_empty == 0 {
+            if first {
                 qb.push("1 = 1");
             }
             qb.push(")");
             Ok(())
+        }
+    }
+}
+
+/// Check if a filter node is purely a regex condition (or a Logic node containing
+/// only regex conditions). These nodes produce no SQL and should be deferred to
+/// Rust-side post-filtering.
+fn is_pure_regex(node: &FilterNode) -> bool {
+    match node {
+        FilterNode::Condition { op, .. } => op == "regex",
+        FilterNode::Logic { and, or } => {
+            let kids = and.as_ref().or(or.as_ref());
+            kids.map(|k| k.iter().all(is_pure_regex)).unwrap_or(true)
+        }
+    }
+}
+
+/// Collect regex patterns from a node that is known to be pure regex (all children
+/// are regex-only). Does not generate any SQL.
+fn collect_regex_from_node(node: &FilterNode, regexes: &mut Vec<(String, regex::Regex)>) {
+    match node {
+        FilterNode::Condition { field, value, .. } => {
+            if let Some(pattern) = value.as_str() {
+                if let Ok(re) = regex::Regex::new(pattern) {
+                    regexes.push((field.clone(), re));
+                }
+            }
+        }
+        FilterNode::Logic { and, or } => {
+            let kids = and.as_ref().or(or.as_ref());
+            if let Some(kids) = kids {
+                for child in kids {
+                    collect_regex_from_node(child, regexes);
+                }
+            }
         }
     }
 }
@@ -408,4 +444,161 @@ pub async fn query_items(
         limit,
     )
     .await
+}
+
+// ── Tests ──
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::FilterNode;
+    use sqlx::QueryBuilder;
+
+    #[test]
+    fn test_translate_simple_condition() {
+        let node = FilterNode::Condition {
+            field: "name".to_string(),
+            op: "contains".to_string(),
+            value: serde_json::Value::String("Hello".to_string()),
+        };
+        let mut fs = FieldSet::new();
+        let mut qb = QueryBuilder::new("");
+        let mut regexes = Vec::new();
+        translate_node(&node, &mut fs, &mut qb, &mut regexes).unwrap();
+        let sql = qb.sql();
+        assert!(
+            sql.contains("i.name LIKE"),
+            "SQL should contain LIKE: {}",
+            sql
+        );
+        assert!(regexes.is_empty(), "Should have no regexes");
+    }
+
+    #[test]
+    fn test_translate_regex_condition() {
+        let node = FilterNode::Condition {
+            field: "name".to_string(),
+            op: "regex".to_string(),
+            value: serde_json::Value::String("^H".to_string()),
+        };
+        let mut fs = FieldSet::new();
+        let mut qb = QueryBuilder::new("");
+        let mut regexes = Vec::new();
+        translate_node(&node, &mut fs, &mut qb, &mut regexes).unwrap();
+        let sql = qb.sql();
+        assert!(
+            sql.is_empty(),
+            "Regex condition should produce no SQL, got: {}",
+            sql
+        );
+        assert_eq!(regexes.len(), 1, "Should have one regex");
+    }
+
+    #[test]
+    fn test_translate_mixed_and_group() {
+        // {and: [{field:"name",op:"contains",value:"Hello"}, {field:"name",op:"regex",value:"^H"}]}
+        // The regex part should be deferred; the SQL should have one LIKE and no dangling/double AND.
+        let node = FilterNode::Logic {
+            and: Some(vec![
+                FilterNode::Condition {
+                    field: "name".to_string(),
+                    op: "contains".to_string(),
+                    value: serde_json::Value::String("Hello".to_string()),
+                },
+                FilterNode::Condition {
+                    field: "name".to_string(),
+                    op: "regex".to_string(),
+                    value: serde_json::Value::String("^H".to_string()),
+                },
+            ]),
+            or: None,
+        };
+        let mut fs = FieldSet::new();
+        let mut qb = QueryBuilder::new("");
+        let mut regexes = Vec::new();
+        translate_node(&node, &mut fs, &mut qb, &mut regexes).unwrap();
+        let sql = qb.sql();
+        assert!(
+            sql.contains("i.name LIKE"),
+            "SQL should contain LIKE: {}",
+            sql
+        );
+        assert!(
+            !sql.contains("AND AND"),
+            "Should not have double AND: {}",
+            sql
+        );
+        assert!(
+            !sql.trim_end().ends_with("AND"),
+            "Should not have dangling AND: {}",
+            sql
+        );
+        assert_eq!(regexes.len(), 1, "Should have one regex");
+    }
+
+    #[test]
+    fn test_translate_regex_only_and_group() {
+        // {and: [{field:"name",op:"regex",value:"^A"}, {field:"name",op:"regex",value:"^B"}]}
+        // All children are regex-only, so SQL should fallback to "1 = 1".
+        let node = FilterNode::Logic {
+            and: Some(vec![
+                FilterNode::Condition {
+                    field: "name".to_string(),
+                    op: "regex".to_string(),
+                    value: serde_json::Value::String("^A".to_string()),
+                },
+                FilterNode::Condition {
+                    field: "name".to_string(),
+                    op: "regex".to_string(),
+                    value: serde_json::Value::String("^B".to_string()),
+                },
+            ]),
+            or: None,
+        };
+        let mut fs = FieldSet::new();
+        let mut qb = QueryBuilder::new("");
+        let mut regexes = Vec::new();
+        translate_node(&node, &mut fs, &mut qb, &mut regexes).unwrap();
+        let sql = qb.sql();
+        assert!(
+            sql.contains("1 = 1"),
+            "All-regex Logic should produce '1 = 1': {}",
+            sql
+        );
+        assert_eq!(regexes.len(), 2, "Should have two regexes");
+    }
+
+    #[test]
+    fn test_translate_two_sql_conditions_with_and() {
+        // Two SQL-producing conditions with AND — no regex involved.
+        // Should produce: (condition1 AND condition2) with no double connectors.
+        let node = FilterNode::Logic {
+            and: Some(vec![
+                FilterNode::Condition {
+                    field: "name".to_string(),
+                    op: "contains".to_string(),
+                    value: serde_json::Value::String("Hello".to_string()),
+                },
+                FilterNode::Condition {
+                    field: "name".to_string(),
+                    op: "contains".to_string(),
+                    value: serde_json::Value::String("World".to_string()),
+                },
+            ]),
+            or: None,
+        };
+        let mut fs = FieldSet::new();
+        let mut qb = QueryBuilder::new("");
+        let mut regexes = Vec::new();
+        translate_node(&node, &mut fs, &mut qb, &mut regexes).unwrap();
+        let sql = qb.sql();
+        let and_count = sql.matches(" AND ").count();
+        assert_eq!(and_count, 1, "Should have exactly one AND: {}", sql);
+        assert!(
+            !sql.contains("AND AND"),
+            "Should not have double AND: {}",
+            sql
+        );
+        assert!(regexes.is_empty(), "Should have no regexes");
+    }
 }
