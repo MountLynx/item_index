@@ -137,3 +137,22 @@ export interface PluginUsage {
   repos: string[]
   presets: string[]
 }
+
+// ── Query Engine types ──
+
+export type FilterNode =
+  | { field: string; op: string; value: unknown }
+  | { and?: FilterNode[]; or?: FilterNode[] }
+
+export interface QueryParams {
+  filter: FilterNode
+  extract?: string[]
+  orderBy?: { field: string; desc?: boolean }
+  limit?: number
+}
+
+export interface QueryResult {
+  items: Item[]
+  total: number
+  extracted?: Record<string, Record<string, unknown>>
+}
