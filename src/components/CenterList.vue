@@ -23,10 +23,13 @@
     <Teleport to="body">
       <div v-if="menu.show" class="menu-overlay" @click="menu.show = false" @contextmenu.prevent="menu.show = false">
         <div class="menu" :style="{ left: menu.x + 'px', top: menu.y + 'px' }">
+          <button v-if="menu.item && !itemStore.subRepoMap[menu.item.id]" class="menu-item" @click="createFolderAction">
+            <TablerIcon name="folder-plus" :size="15" /> {{ $t('centerList.createFolder') }}
+          </button>
           <button v-if="menu.item && !itemStore.subRepoMap[menu.item.id]" class="menu-item" @click="createSubRepoAction">
             <TablerIcon name="database" :size="15" /> {{ $t('centerList.createSubRepo') }}
           </button>
-          <button class="menu-item" @click="deleteItem"><TablerIcon name="trash" :size="15" /> {{ $t('centerList.deleteItem') }}</button>
+          <button class="menu-item danger" @click="deleteItem"><TablerIcon name="trash" :size="15" /> {{ $t('centerList.deleteItem') }}</button>
         </div>
       </div>
     </Teleport>
@@ -72,8 +75,18 @@ async function handleDoubleClick(item: Item) {
   if (isSubRepo) {
     await itemStore.openSubRepoWindow(item.id)
   } else {
-    await itemStore.openItemFolder(item.id)
+    const hasFolder = await itemStore.itemHasFolder(item.id)
+    if (hasFolder) {
+      await itemStore.openItemFolder(item.id)
+    }
   }
+}
+
+async function createFolderAction() {
+  if (menu.item) {
+    await itemStore.createItemFolder(menu.item.id)
+  }
+  menu.show = false
 }
 
 async function createSubRepoAction() {
@@ -117,9 +130,11 @@ async function deleteItem() { if (menu.item && confirm(t('centerList.confirmDele
 .menu-item {
   display: flex; align-items: center; gap: 8px; width: 100%;
   padding: 8px 12px; font-size: var(--fs-sm); border-radius: var(--r-sm);
-  border: none; background: none; cursor: pointer; height: auto; color: var(--danger);
+  border: none; background: none; cursor: pointer; height: auto; color: var(--text-primary);
 }
-.menu-item:hover { background: var(--danger-subtle); }
+.menu-item:hover { background: var(--surface-hover); }
+.menu-item.danger { color: var(--danger); }
+.menu-item.danger:hover { background: var(--danger-subtle); }
 .repo-badge { color: var(--accent); flex-shrink: 0; margin-left: -4px; }
 .row.sel .repo-badge { color: var(--accent-fg); }
 </style>

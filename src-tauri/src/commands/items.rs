@@ -100,11 +100,11 @@ pub async fn create_item(
     name: String,
 ) -> Result<Item, String> {
     let pool = get_pool(&window, &state)?;
-    let repo_path = get_repo_path(&window, &state)?;
     let id = generate_id();
     let now = chrono::Utc::now().to_rfc3339();
 
-    // Begin transaction — INSERT + filesystem ops are atomic from DB perspective
+    // Item folder + .md are created on-demand instead of eagerly,
+    // keeping lightweight item types (e.g. expense tracking) filesystem-clean.
     let mut tx = pool.begin().await.map_err(|e| e.to_string())?;
 
     sqlx::query(
@@ -113,24 +113,9 @@ pub async fn create_item(
     ).bind(&id).bind(&name).bind(type_id).bind(&now).bind(&now)
         .execute(&mut *tx).await.map_err(|e| e.to_string())?;
 
-    // Create hash folder + auto-generate <name>.md
-    let item_dir = Path::new(&repo_path).join(&id);
-    if let Err(e) = std::fs::create_dir_all(&item_dir) {
-        // tx auto-rollbacks on drop — no DB row remains
-        return Err(format!("Cannot create item folder: {}", e));
-    }
-    let md_content = format!("# {}\n", name);
-    if let Err(e) = std::fs::write(item_dir.join(format!("{}.md", name)), md_content) {
-        // Clean up the partially-created folder, then tx auto-rollbacks
-        let _ = std::fs::remove_dir_all(&item_dir);
-        return Err(format!("Cannot create .md file: {}", e));
-    }
-
-    // Commit — if this fails, clean up folder since DB row was rolled back
-    tx.commit().await.map_err(|e| {
-        let _ = std::fs::remove_dir_all(&item_dir);
-        e.to_string()
-    })?;
+    // Commit — item folder + .md are created on-demand instead of eagerly,
+    // keeping lightweight item types (e.g. expense tracking) filesystem-clean.
+    tx.commit().await.map_err(|e| e.to_string())?;
 
     Ok(Item {
         id, name, type_id,
@@ -330,14 +315,72 @@ pub async fn delete_item(
     Ok(())
 }
 
+/// Create the item folder + <name>.md file (for a single item).
+/// Safe to call even if the folder already exists.
+fn ensure_item_folder(repo_path: &str, item_id: &str, name: &str) -> Result<(), String> {
+    let item_dir = Path::new(repo_path).join(item_id);
+    if !item_dir.exists() {
+        std::fs::create_dir_all(&item_dir)
+            .map_err(|e| format!("Cannot create item folder: {}", e))?;
+        let md_content = format!("# {}\n", name);
+        std::fs::write(item_dir.join(format!("{}.md", name)), md_content)
+            .map_err(|e| {
+                let _ = std::fs::remove_dir_all(&item_dir);
+                format!("Cannot create .md file: {}", e)
+            })?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn create_item_folder(
+    window: tauri::Window,
+    state: State<'_, AppState>,
+    item_id: String,
+) -> Result<(), String> {
+    let pool = get_pool(&window, &state)?;
+    let repo_path = get_repo_path(&window, &state)?;
+
+    let name: String = sqlx::query_scalar("SELECT name FROM items WHERE id = ?")
+        .bind(&item_id)
+        .fetch_one(&pool)
+        .await
+        .map_err(|e| format!("Item not found: {}", e))?;
+
+    ensure_item_folder(&repo_path, &item_id, &name)
+}
+
+#[tauri::command]
+pub async fn item_has_folder(
+    window: tauri::Window,
+    state: State<'_, AppState>,
+    item_id: String,
+) -> Result<bool, String> {
+    let repo_path = get_repo_path(&window, &state)?;
+    let item_dir = Path::new(&repo_path).join(&item_id);
+    Ok(item_dir.exists())
+}
+
 #[tauri::command]
 pub async fn open_item_folder(
     window: tauri::Window,
     state: State<'_, AppState>,
     item_id: String,
 ) -> Result<(), String> {
+    let pool = get_pool(&window, &state)?;
     let repo_path = get_repo_path(&window, &state)?;
+
+    // Auto-create folder if it doesn't exist yet
     let item_dir = Path::new(&repo_path).join(&item_id);
+    if !item_dir.exists() {
+        let name: String = sqlx::query_scalar("SELECT name FROM items WHERE id = ?")
+            .bind(&item_id)
+            .fetch_one(&pool)
+            .await
+            .map_err(|e| format!("Item not found: {}", e))?;
+        ensure_item_folder(&repo_path, &item_id, &name)?;
+    }
+
     open::that(item_dir.to_str().ok_or("Invalid path")?)
         .map_err(|e| format!("Cannot open folder: {}", e))
 }
@@ -348,12 +391,23 @@ pub async fn create_sub_repo(
     state: State<'_, AppState>,
     item_id: String,
 ) -> Result<(), String> {
+    let pool = get_pool(&window, &state)?;
     let repo_path = get_repo_path(&window, &state)?;
     let item_dir = Path::new(&repo_path).join(&item_id);
     let index_dir = item_dir.join(".index");
 
     if index_dir.exists() {
         return Err("Sub-repo already exists".to_string());
+    }
+
+    // Ensure item folder exists first (lazy-creation model)
+    if !item_dir.exists() {
+        let name: String = sqlx::query_scalar("SELECT name FROM items WHERE id = ?")
+            .bind(&item_id)
+            .fetch_one(&pool)
+            .await
+            .map_err(|e| format!("Item not found: {}", e))?;
+        ensure_item_folder(&repo_path, &item_id, &name)?;
     }
 
     std::fs::create_dir_all(&index_dir)

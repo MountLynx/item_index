@@ -53,7 +53,7 @@ fn resolve_column(field: &str, fs: &mut FieldSet) -> Result<String, String> {
     match field {
         "name" => Ok("i.name".to_string()),
         "type_id" => Ok("i.type_id".to_string()),
-        "type" => {
+        "item_type" => {
             fs.has_type = true;
             Ok("t.name".to_string())
         }
@@ -239,7 +239,7 @@ fn scan_fields(node: &FilterNode, fs: &mut FieldSet) {
         FilterNode::Condition { field, .. } => match field.as_str() {
             "group" => fs.has_group = true,
             "tag" => fs.has_tag = true,
-            "type" => fs.has_type = true,
+            "item_type" => fs.has_type = true,
             _ => {}
         },
         FilterNode::Logic { and, or } => {
@@ -292,6 +292,12 @@ fn compare_values(a: &serde_json::Value, b: &serde_json::Value) -> std::cmp::Ord
 fn evaluate_filter(item: &Item, node: &FilterNode) -> bool {
     match node {
         FilterNode::Condition { field, op, value } => {
+            // SQL-side join fields (item_type/group/tag) — skip in post-filter.
+            // These are resolved via SQL JOINs which guarantee correctness;
+            // the Item struct doesn't carry the joined values.
+            if field == "item_type" || field == "group" || field == "tag" {
+                return true;
+            }
             let val = get_field_value(item, field);
             match op.as_str() {
                 "=" => val == *value,
@@ -369,7 +375,7 @@ pub async fn execute_query(
         match ob.field.as_str() {
             "group" => fs.has_group = true,
             "tag" => fs.has_tag = true,
-            "type" => fs.has_type = true,
+            "item_type" => fs.has_type = true,
             _ => {}
         }
     }

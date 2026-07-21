@@ -18,7 +18,7 @@ export default {
     dayAgo: 'd ago', monthAgo: 'mo ago', yesterday: 'Yesterday',
     confirmDelete: 'Delete "{name}"?',
     dragToGroup: 'Drag to group',
-    subRepo: 'Sub-repo', createSubRepo: 'Create Sub-Repo',
+    subRepo: 'Sub-repo', createSubRepo: 'Create Sub-Repo', createFolder: 'Create Folder',
   },
   sidebar: {
     groups: 'Groups', tags: 'Tags', showAll: '← Show All',

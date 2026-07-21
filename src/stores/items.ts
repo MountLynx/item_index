@@ -99,6 +99,14 @@ export const useItemStore = defineStore('items', () => {
     await fetchSubRepos()
   }
 
+  async function createItemFolder(id: string): Promise<void> {
+    await invoke('create_item_folder', { itemId: id })
+  }
+
+  async function itemHasFolder(id: string): Promise<boolean> {
+    return invoke<boolean>('item_has_folder', { itemId: id })
+  }
+
   async function openSubRepoWindow(id: string): Promise<void> {
     await invoke('open_sub_repo_window', { itemId: id })
   }
@@ -111,5 +119,5 @@ export const useItemStore = defineStore('items', () => {
     }
   }
 
-  return { items, selectedId, detail, loadingDetail, subRepoMap, fetchList, select, clearSelection, create, update, remove, saveProperties, query, openItemFolder, createSubRepo, openSubRepoWindow, fetchSubRepos }
+  return { items, selectedId, detail, loadingDetail, subRepoMap, fetchList, select, clearSelection, create, update, remove, saveProperties, query, openItemFolder, createSubRepo, createItemFolder, itemHasFolder, openSubRepoWindow, fetchSubRepos }
 })

@@ -1,7 +1,16 @@
 use std::path::Path;
 use tauri::State;
+use sqlx::SqlitePool;
 use crate::models::FileNode;
 use crate::state::AppState;
+
+fn get_pool(window: &tauri::Window, state: &State<'_, AppState>) -> Result<SqlitePool, String> {
+    let label = window.label().to_string();
+    state.repos.lock().unwrap()
+        .get(&label)
+        .map(|r| r.db.clone())
+        .ok_or("No repository open".to_string())
+}
 
 fn get_repo_path(window: &tauri::Window, state: &State<'_, AppState>) -> Result<String, String> {
     let label = window.label().to_string();
@@ -97,6 +106,7 @@ pub async fn add_attachment(
     item_id: String,
     source_path: String,
 ) -> Result<(), String> {
+    let pool = get_pool(&window, &state)?;
     let repo_path = get_repo_path(&window, &state)?;
     let source = Path::new(&source_path);
     let file_name = source.file_name()
@@ -105,6 +115,20 @@ pub async fn add_attachment(
         .to_string();
 
     let item_dir = Path::new(&repo_path).join(&item_id);
+
+    // Auto-create folder if it doesn't exist (lazy-creation model)
+    if !item_dir.exists() {
+        let name: String = sqlx::query_scalar("SELECT name FROM items WHERE id = ?")
+            .bind(&item_id)
+            .fetch_one(&pool)
+            .await
+            .map_err(|e| format!("Item not found: {}", e))?;
+        std::fs::create_dir_all(&item_dir)
+            .map_err(|e| format!("Cannot create item folder: {}", e))?;
+        let md_content = format!("# {}\n", name);
+        let _ = std::fs::write(item_dir.join(format!("{}.md", name)), md_content);
+    }
+
     let mut target = item_dir.join(&file_name);
 
     // Auto-rename on collision: "cover.jpg" → "cover (2).jpg"
